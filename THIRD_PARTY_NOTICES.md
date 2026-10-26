@@ -1,6 +1,6 @@
 # Third-party assets and dependencies
 
-## Anemo logo — not covered by the MIT license
+## Anemo logo  -  not covered by the MIT license
 
 `assets/icon.svg`, `assets/icon.png`, and `assets/icon.ico` contain the Anemo emblem supplied for this project, associated with Genshin Impact. These files are not original Anemorph artwork and are excluded from the project's MIT license. No redistribution permission or open-source asset license has been established. The supplied logo is retained at the maintainer's request. The code license does not grant redistribution rights to this artwork. Its presence does not imply affiliation or endorsement.
 

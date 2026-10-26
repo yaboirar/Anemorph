@@ -1,8 +1,8 @@
-# Anemorph
+# Anemorph - Anime and TV Episode Batch Renamer
 
 **Version 0.0.1** · Windows · Rust
 
-Give your episode files a little breathing room. Anemorph helps you turn a folder of mixed anime or TV filenames into a consistent library—with a preview before you rename anything.
+Anemorph is a free, open-source bulk file renamer for anime and TV episodes on Windows. Batch rename MKV, MP4, AVI, M4V, and WebM files with automatic season and episode detection, custom filename formats, and a preview before applying changes.
 
 ```text
 [Group] My Show - 09 [1080p].mkv
