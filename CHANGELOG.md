@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.0.1 — 2026-10-26
+## 0.0.1 â€” 2026-10-26
 
 Initial versioned Anemorph build.
 

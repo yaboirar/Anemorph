@@ -104,4 +104,4 @@ Release notes live in [CHANGELOG.md](CHANGELOG.md). The version in `Cargo.toml` 
 
 Anemorph's source code and documentation are available under the [MIT license](LICENSE). In plain language, you can use, modify, and share the code, including commercially, while keeping its license notice.
 
-The supplied Anemo logo is **excluded from MIT**. No redistribution permission or open-source license has been established for that artwork; the code license does not grant rights to use or redistribute it. The original logo is retained at the maintainer’s request. Third-party dependency licenses also remain in effect. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [DEPENDENCY_LICENSES.md](DEPENDENCY_LICENSES.md).
+The supplied Anemo logo is **excluded from MIT**. No redistribution permission or open-source license has been established for that artwork; the code license does not grant rights to use or redistribute it. The original logo is retained at the maintainerâ€™s request. Third-party dependency licenses also remain in effect. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [DEPENDENCY_LICENSES.md](DEPENDENCY_LICENSES.md).
