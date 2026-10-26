@@ -1,0 +1,10 @@
+/target/
+/work/
+/dist/
+*.exe
+*.pdb
+*.log
+.vs/
+.idea/
+.DS_Store
+Thumbs.db
