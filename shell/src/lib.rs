@@ -7,6 +7,7 @@ mod containers;
 #[path = "../../src/selection.rs"]
 mod selection;
 use std::{
+    cell::RefCell,
     ffi::{OsString, c_void},
     os::windows::ffi::OsStringExt,
     path::PathBuf,
@@ -16,7 +17,7 @@ use windows::{
     Win32::{
         Foundation::{
             BOOL, CLASS_E_CLASSNOTAVAILABLE, CLASS_E_NOAGGREGATION, E_FAIL, E_INVALIDARG,
-            E_NOTIMPL, E_POINTER, HMODULE, S_FALSE, S_OK,
+            E_NOTIMPL, E_POINTER, HMODULE, POINT, S_FALSE, S_OK,
         },
         System::{
             Com::{CoTaskMemFree, IBindCtx, IClassFactory, IClassFactory_Impl},
@@ -27,8 +28,9 @@ use windows::{
             },
         },
         UI::Shell::{
-            ECS_ENABLED, ECS_HIDDEN, IEnumExplorerCommand, IExplorerCommand, IExplorerCommand_Impl,
-            IShellItemArray, SHStrDupW, SIGDN_FILESYSPATH,
+            ECS_ENABLED, ECS_HIDDEN, IEnumExplorerCommand, IExecuteCommand, IExecuteCommand_Impl,
+            IExplorerCommand, IExplorerCommand_Impl, IObjectWithSelection,
+            IObjectWithSelection_Impl, IShellItemArray, SHStrDupW, SIGDN_FILESYSPATH,
         },
     },
     core::{Error, GUID, HRESULT, IUnknown, Interface, PCWSTR, PWSTR, Result, implement},
@@ -96,9 +98,51 @@ fn text(value: &str) -> Result<PWSTR> {
     // Explorer takes ownership of the COM-allocated copy.
     unsafe { SHStrDupW(PCWSTR(wide.as_ptr())) }
 }
-#[implement(IExplorerCommand)]
+#[implement(IExplorerCommand, IExecuteCommand, IObjectWithSelection)]
 struct Command {
     _live: Live,
+    selection: RefCell<Option<IShellItemArray>>,
+}
+impl IObjectWithSelection_Impl for Command_Impl {
+    fn SetSelection(&self, items: Option<&IShellItemArray>) -> Result<()> {
+        paths(items)?;
+        *self.selection.borrow_mut() = items.cloned();
+        Ok(())
+    }
+    fn GetSelection(&self, iid: *const GUID, out: *mut *mut c_void) -> Result<()> {
+        if iid.is_null() || out.is_null() {
+            return Err(Error::from(E_POINTER));
+        }
+        unsafe {
+            *out = std::ptr::null_mut();
+        }
+        let items = self.selection.borrow();
+        let items = items.as_ref().ok_or_else(|| Error::from(E_INVALIDARG))?;
+        unsafe { items.query(iid, out).ok() }
+    }
+}
+impl IExecuteCommand_Impl for Command_Impl {
+    fn SetKeyState(&self, _: u32) -> Result<()> {
+        Ok(())
+    }
+    fn SetParameters(&self, _: &PCWSTR) -> Result<()> {
+        Ok(())
+    }
+    fn SetPosition(&self, _: &POINT) -> Result<()> {
+        Ok(())
+    }
+    fn SetShowWindow(&self, _: i32) -> Result<()> {
+        Ok(())
+    }
+    fn SetNoShowUI(&self, _: BOOL) -> Result<()> {
+        Ok(())
+    }
+    fn SetDirectory(&self, _: &PCWSTR) -> Result<()> {
+        Ok(())
+    }
+    fn Execute(&self) -> Result<()> {
+        self.Invoke(self.selection.borrow().as_ref(), None)
+    }
 }
 impl IExplorerCommand_Impl for Command_Impl {
     fn GetTitle(&self, _: Option<&IShellItemArray>) -> Result<PWSTR> {
@@ -163,7 +207,11 @@ impl IClassFactory_Impl for Factory_Impl {
         if outer.is_some() {
             return Err(Error::from(CLASS_E_NOAGGREGATION));
         }
-        let command: IExplorerCommand = Command { _live: Live::new() }.into();
+        let command: IExplorerCommand = Command {
+            _live: Live::new(),
+            selection: RefCell::new(None),
+        }
+        .into();
         // COM supplies valid writable out and IID pointers; query adds the returned reference.
         unsafe { command.query(iid, out).ok() }
     }
@@ -175,6 +223,12 @@ impl IClassFactory_Impl for Factory_Impl {
         }
         Ok(())
     }
+}
+pub fn class_factory() -> IClassFactory {
+    Factory { _live: Live::new() }.into()
+}
+pub fn server_idle() -> bool {
+    OBJECTS.load(Ordering::SeqCst) <= 1 && LOCKS.load(Ordering::SeqCst) == 0
 }
 /// # Safety
 /// Called by COM with valid IID/CLSID and writable output pointers.

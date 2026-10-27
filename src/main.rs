@@ -2,6 +2,7 @@
 mod containers;
 mod elevation;
 mod engine;
+mod i18n;
 mod integration;
 mod naming;
 mod perf;
@@ -172,34 +173,23 @@ impl App {
         restore_folder: bool,
     ) -> Self {
         round_window_corners(cc);
+        if let Some(dir) = &smoke
+            && let Some(render) = &cc.wgpu_render_state
+        {
+            let info = render.adapter.get_info();
+            let _ = std::fs::write(dir.join("graphics.json"), serde_json::json!({"adapter":info.name,"type":format!("{:?}",info.device_type),"backend":format!("{:?}",info.backend)}).to_string());
+        }
         use raw_window_handle::{HasWindowHandle, RawWindowHandle};
         let native_window = cc.window_handle().ok().and_then(|h| match h.as_raw() {
             RawWindowHandle::Win32(w) => Some(w.hwnd.get() as usize),
             _ => None,
         });
-        let mut fonts = egui::FontDefinitions::default();
-        // Use the user's installed font; no proprietary font data is bundled.
-        let font_path = std::env::var_os("WINDIR")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from(r"C:\Windows"))
-            .join("Fonts/arialbd.ttf");
-        let mut brand_fonts = fonts.families[&egui::FontFamily::Proportional].clone();
-        if let Ok(bytes) = std::fs::read(font_path) {
-            fonts.font_data.insert(
-                "arial-bold".into(),
-                egui::FontData::from_owned(bytes).into(),
-            );
-            brand_fonts.insert(0, "arial-bold".into());
-        }
-        fonts
-            .families
-            .insert(egui::FontFamily::Name("brand".into()), brand_fonts);
-        cc.egui_ctx.set_fonts(fonts);
         let data = smoke
             .as_ref()
             .map(|p| p.join("settings"))
             .unwrap_or_else(engine::data_dir);
         let settings = Settings::load(&data.join("settings.json"));
+        i18n::configure(&cc.egui_ctx, &settings.language);
         let color = settings
             .accent_hex
             .as_deref()
@@ -300,6 +290,41 @@ impl App {
             app.open(p, true, &cc.egui_ctx)
         }
         app
+    }
+    fn repair(&mut self, ctx: &Context) {
+        if self.busy || self.preview.is_some() || self.integration.pending {
+            return;
+        }
+        self.settings = Settings::load(&self.data.join("settings.json"));
+        i18n::configure(ctx, &self.settings.language);
+        self.theme(ctx);
+        self.format_draft = self.settings.number_format.clone();
+        self.movie_format_draft = self.settings.movie_format.clone();
+        self.format_cache = None;
+        self.movie_format_cache = None;
+        self.draft_color = self
+            .settings
+            .accent_hex
+            .as_deref()
+            .and_then(parse_hex)
+            .unwrap_or(DEFAULT_ACCENT);
+        self.hex = hex(self.draft_color);
+        self.picker_hue = egui::ecolor::Hsva::from(self.draft_color).h;
+        self.color_message.clear();
+        self.uninstall_error.clear();
+        self.error = false;
+        self.anchor = None;
+        self.check_anchor = None;
+        self.column_drag = None;
+        self.container_anchor = None;
+        self.episode_dialog = None;
+        if let Some(root) = self.root.clone() {
+            self.open(root, false, ctx);
+        }
+        if let Some(root) = self.uninstaller.as_ref().and_then(|p| p.parent()) {
+            self.integration.repair(root.to_path_buf());
+        }
+        ctx.request_repaint();
     }
     fn save_settings(&mut self) {
         if !self.settings.remember_folder {
@@ -454,8 +479,8 @@ impl App {
         self.counts.set(None);
         let select = !self.any_file_selected();
         for row in &mut self.rows {
-            row.included = select && row.ready;
-            row.highlighted = select && row.ready;
+            row.included = select;
+            row.highlighted = select;
         }
         self.anchor = None;
         self.check_anchor = None;
@@ -894,12 +919,17 @@ impl App {
     }
     fn mark(&mut self, value: Option<bool>) {
         self.counts.set(None);
+        let highlighted = self.rows.iter().any(|r| r.highlighted);
         let mark = value.unwrap_or_else(|| {
             self.rows
                 .iter()
-                .any(|r| r.highlighted && r.ready && !r.included)
+                .any(|r| (r.highlighted || !highlighted) && !r.included)
         });
-        for r in self.rows.iter_mut().filter(|r| r.highlighted && r.ready) {
+        for r in self
+            .rows
+            .iter_mut()
+            .filter(|r| r.highlighted || !highlighted)
+        {
             r.included = mark
         }
     }
@@ -915,7 +945,7 @@ impl App {
                 let hi = anchor.max(index);
                 for (i, r) in self.rows.iter_mut().enumerate() {
                     r.highlighted = i >= lo && i <= hi;
-                    if r.highlighted && r.ready {
+                    if r.highlighted {
                         r.included = value
                     }
                 }
@@ -929,9 +959,7 @@ impl App {
                 for (i, r) in self.rows.iter_mut().enumerate() {
                     r.highlighted = i == index
                 }
-                if self.rows[index].ready {
-                    self.rows[index].included = mark
-                }
+                self.rows[index].included = mark;
             }
             self.check_anchor = Some((index, mark));
             self.anchor = Some(index);
@@ -1015,6 +1043,26 @@ fn main() -> eframe::Result {
     // This utility has a small, bounded scene. Avoid game-oriented allocation
     // hints and extra queued frames; retain vsync and the existing adapter.
     if let eframe::egui_wgpu::WgpuSetup::CreateNew(setup) = &mut graphics.wgpu_setup {
+        setup.power_preference = wgpu::PowerPreference::LowPower;
+        let software = args.iter().any(|a| a == "--software-rendering");
+        setup.native_adapter_selector = Some(Arc::new(move |adapters, surface| {
+            adapters
+                .iter()
+                .filter(|a| surface.is_none_or(|s| a.is_surface_supported(s)))
+                .filter(|a| !software || a.get_info().device_type == wgpu::DeviceType::Cpu)
+                .min_by_key(|a| match a.get_info().device_type {
+                    wgpu::DeviceType::IntegratedGpu => 0,
+                    wgpu::DeviceType::DiscreteGpu => 1,
+                    wgpu::DeviceType::VirtualGpu => 2,
+                    wgpu::DeviceType::Cpu => 3,
+                    _ => 4,
+                })
+                .cloned()
+                .ok_or_else(|| {
+                    "No compatible graphics adapter. Update your display driver or try another PC."
+                        .into()
+                })
+        }));
         let descriptor = setup.device_descriptor.clone();
         setup.device_descriptor = Arc::new(move |adapter| {
             let mut device = descriptor(adapter);
@@ -1055,6 +1103,53 @@ mod tests {
             &cc,
             Some(std::env::temp_dir().join(format!("anemorph-ui-{}", std::process::id()))),
         )
+    }
+    #[test]
+    fn unchanged_files_can_be_included_but_are_never_rename_operations() {
+        let mut a = app();
+        let root = std::env::temp_dir().join("anemorph-unchanged-selection");
+        a.root = Some(root.clone());
+        a.series = "Show".into();
+        a.files = Arc::new(vec![
+            root.join("Show S01E09.mkv"),
+            root.join("Show S01E19.mp4"),
+        ]);
+        a.rebuild();
+        assert!(a.rows.iter().all(|r| r.status == "No change" && !r.ready));
+        a.mark(Some(true));
+        assert!(a.rows.iter().all(|r| r.included));
+        assert_eq!(a.row_counts().1, 0);
+        a.mark(Some(false));
+        a.select(0, true, Modifiers::NONE);
+        assert!(a.rows[0].included);
+        a.select(1, true, Modifiers::SHIFT);
+        assert!(a.rows.iter().all(|r| r.included));
+        a.toggle_all_files();
+        assert!(a.rows.iter().all(|r| !r.included));
+        assert!(a.rows.iter().all(|r| !r.ready));
+    }
+    #[test]
+    fn repair_reloads_saved_preferences_without_deleting_user_data() {
+        let mut a = app();
+        let root = std::env::temp_dir().join(format!("anemorph-recovery-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        a.data = root.clone();
+        let saved = Settings {
+            animations: false,
+            ..Default::default()
+        };
+        saved.save(&root.join("settings.json")).unwrap();
+        std::fs::write(root.join("native-last-batch.json"), b"history fixture").unwrap();
+        a.format_draft = "unsaved draft".into();
+        a.error = true;
+        a.repair(&a.context.clone());
+        assert!(!a.settings.animations && !a.error);
+        assert_eq!(a.format_draft, saved.number_format);
+        assert_eq!(
+            std::fs::read(root.join("native-last-batch.json")).unwrap(),
+            b"history fixture"
+        );
+        std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
     fn large_preview_runs_off_thread_and_discards_superseded_results() {
@@ -1392,7 +1487,7 @@ mod tests {
         assert!(!a.any_file_selected());
         a.toggle_all_files();
         assert!(a.rows[0].included && a.rows[1].included);
-        assert!(!a.rows[2].included && !a.rows[2].highlighted);
+        assert!(a.rows[2].included && a.rows[2].highlighted);
     }
     #[test]
     fn clearing_suggested_name_obeys_saved_preference() {

@@ -1,5 +1,11 @@
 use eframe::egui;
-use std::{os::windows::process::CommandExt, path::PathBuf, process::Command, sync::mpsc};
+use std::{
+    os::windows::process::CommandExt,
+    path::PathBuf,
+    process::{Command, Output, Stdio},
+    sync::mpsc,
+    time::{Duration, Instant},
+};
 #[derive(Default)]
 pub struct Integration {
     pub enabled: bool,
@@ -9,14 +15,54 @@ pub struct Integration {
     receiver: Option<mpsc::Receiver<Result<bool, String>>>,
 }
 fn command(root: &std::path::Path, action: &str) -> Result<std::process::Output, String> {
-    Command::new(root.join("anemorph-maintenance.exe"))
-        .arg(action)
+    run_command(
+        Command::new(root.join("anemorph-maintenance.exe")).arg(action),
+        Duration::from_secs(10),
+    )
+}
+fn root_command(root: &std::path::Path, action: &str) -> Result<Output, String> {
+    run_command(
+        Command::new(root.join("anemorph-maintenance.exe"))
+            .arg(action)
+            .arg(root),
+        Duration::from_secs(60),
+    )
+}
+fn run_command(command: &mut Command, timeout: Duration) -> Result<Output, String> {
+    let mut child = command
         .creation_flags(0x08000000)
-        .output()
-        .map_err(|e| format!("Run setup to repair Explorer integration: {e}"))
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Run setup to repair Explorer integration: {e}"))?;
+    let started = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => return child.wait_with_output().map_err(|e| e.to_string()),
+            Ok(None) => {}
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(error.to_string());
+            }
+        }
+        if started.elapsed() >= timeout {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err("Windows integration did not respond in time. Try again.".into());
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
 }
 impl Integration {
     pub fn start(&mut self, root: PathBuf, enable: Option<bool>) {
+        self.start_action(root, enable, false);
+    }
+    pub fn repair(&mut self, root: PathBuf) {
+        self.start_action(root, None, true);
+    }
+    fn start_action(&mut self, root: PathBuf, enable: Option<bool>, repair: bool) {
         if self.pending {
             return;
         }
@@ -27,16 +73,15 @@ impl Integration {
         self.receiver = Some(receive);
         std::thread::spawn(move || {
             let result = (|| {
+                if repair {
+                    let out = root_command(&root, "sync-menu")?;
+                    if !out.status.success() {
+                        return Err(String::from_utf8_lossy(&out.stderr).trim().to_owned());
+                    }
+                }
                 match enable {
                     Some(true) => {
-                        let register = || {
-                            Command::new(root.join("anemorph-maintenance.exe"))
-                                .arg("register-modern")
-                                .arg(&root)
-                                .creation_flags(0x08000000)
-                                .output()
-                                .map_err(|e| e.to_string())
-                        };
+                        let register = || root_command(&root, "register-modern");
                         let first = register()?;
                         if !first.status.success() {
                             let text = String::from_utf8_lossy(&first.stderr);
@@ -59,7 +104,7 @@ impl Integration {
                         }
                     }
                     Some(false) => {
-                        let out = command(&root, "unregister-modern")?;
+                        let out = root_command(&root, "classic-menu")?;
                         if !out.status.success() {
                             return Err(String::from_utf8_lossy(&out.stderr).trim().to_owned());
                         }
@@ -111,5 +156,41 @@ impl Integration {
                 }
             }
         }
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn helper_waits_only_in_child() {
+        if std::env::var_os("ANEMORPH_TIMEOUT_TEST_CHILD").is_some() {
+            std::thread::sleep(Duration::from_secs(30));
+        }
+    }
+    #[test]
+    fn an_unresponsive_check_returns_an_error_instead_of_waiting_forever() {
+        let started = Instant::now();
+        let result = run_command(
+            Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "integration::tests::helper_waits_only_in_child"])
+                .env("ANEMORPH_TIMEOUT_TEST_CHILD", "1"),
+            Duration::from_millis(80),
+        );
+        assert!(result.unwrap_err().contains("did not respond"));
+        assert!(started.elapsed() < Duration::from_secs(3));
+    }
+    #[test]
+    fn failed_checks_leave_the_button_ready_to_retry() {
+        let (send, receive) = mpsc::channel();
+        send.send(Err("timed out".into())).unwrap();
+        let mut integration = Integration {
+            pending: true,
+            checked: true,
+            receiver: Some(receive),
+            ..Default::default()
+        };
+        integration.poll(None, &egui::Context::default());
+        assert!(!integration.pending);
+        assert_eq!(integration.message, "timed out");
     }
 }

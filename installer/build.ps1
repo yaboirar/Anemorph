@@ -16,6 +16,7 @@ try {
     $app = Join-Path $TargetDir 'release\anemorph.exe'
     $shell = Join-Path $TargetDir 'release\anemorph_shell.dll'
     $maintenance = Join-Path $TargetDir 'release\anemorph-maintenance.exe'
+    $broker = Join-Path $TargetDir 'release\anemorph-broker.exe'
     $hash = (Get-FileHash -LiteralPath $shell -Algorithm SHA256).Hash.Substring(0, 12).ToLowerInvariant()
     $generated = Join-Path $TargetDir 'installer'
     New-Item -ItemType Directory -Path $generated, $OutputDir -Force | Out-Null
@@ -44,12 +45,12 @@ try {
             try { [xml]$manifest = $reader.ReadToEnd() } finally { $reader.Dispose() }
         } finally { $zip.Dispose() }
         $class = $manifest.SelectSingleNode("//*[local-name()='Class' and @Id='B8A9BDB0-03E4-4F1A-BDEA-28654A8F7DB4']")
-        if (-not $class -or $class.Path -ne "anemorph-shell-$hash.dll" -or $manifest.Package.Identity.Name -ne 'yaboirar.Anemorph' -or $manifest.Package.Identity.Version -ne ($version + '.0')) {
-            throw 'Rebuild the identity package: its version or handler does not match this application build.'
+        if (-not $class -or $class.ParentNode.LocalName -ne 'ExeServer' -or $class.ParentNode.Executable -ne 'anemorph-broker.exe' -or $manifest.Package.Identity.Name -ne 'yaboirar.Anemorph' -or $manifest.Package.Identity.Version -ne ($version + '.0')) {
+            throw 'Rebuild the identity package: its version or menu host does not match this application build.'
         }
         $modernArgs = @("/DMODERN_PACKAGE=$ModernPackage")
     }
-    & makensis.exe /V2 "/DAPP_VERSION=$version" "/DAPP_EXE=$app" "/DMAINTENANCE_EXE=$maintenance" "/DSHELL_DLL=$shell" "/DSHELL_NAME=anemorph-shell-$hash.dll" "/DOUTPUT_FILE=$output" "/DREGISTER_INCLUDE=$register" "/DUNREGISTER_INCLUDE=$unregister" "/DINSTALLED_KB=$kb" @modernArgs (Join-Path $PSScriptRoot 'Anemorph.nsi')
+    & makensis.exe /V2 "/DAPP_VERSION=$version" "/DAPP_EXE=$app" "/DMAINTENANCE_EXE=$maintenance" "/DBROKER_EXE=$broker" "/DSHELL_DLL=$shell" "/DSHELL_NAME=anemorph-shell-$hash.dll" "/DOUTPUT_FILE=$output" "/DREGISTER_INCLUDE=$register" "/DUNREGISTER_INCLUDE=$unregister" "/DINSTALLED_KB=$kb" @modernArgs (Join-Path $PSScriptRoot 'Anemorph.nsi')
     if ($LASTEXITCODE -ne 0) { throw 'Installer build failed.' }
     Get-Item -LiteralPath $output
 } finally { Pop-Location }

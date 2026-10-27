@@ -21,9 +21,9 @@
    <uap:VisualElements AppListEntry="none" DisplayName="Anemorph" Description="Anemorph video filename renamer" BackgroundColor="transparent"
     Square150x150Logo="Anemorph.Integration\icon.png" Square44x44Logo="Anemorph.Integration\icon.png" />
    <Extensions>
-    <com:Extension Category="windows.comServer"><com:ComServer><com:SurrogateServer DisplayName="Anemorph">
-     <com:Class Id="B8A9BDB0-03E4-4F1A-BDEA-28654A8F7DB4" Path="@SHELL_DLL@" ThreadingModel="STA" />
-    </com:SurrogateServer></com:ComServer></com:Extension>
+    <com:Extension Category="windows.comServer"><com:ComServer><com:ExeServer Executable="anemorph-broker.exe" Arguments="--com-server" DisplayName="Anemorph">
+     <com:Class Id="B8A9BDB0-03E4-4F1A-BDEA-28654A8F7DB4" DisplayName="Anemorph" />
+    </com:ExeServer></com:ComServer></com:Extension>
     <desktop4:Extension Category="windows.fileExplorerContextMenus"><desktop4:FileExplorerContextMenus>
      <desktop5:ItemType Type="*"><desktop5:Verb Id="RenameWithAnemorph" Clsid="B8A9BDB0-03E4-4F1A-BDEA-28654A8F7DB4" /></desktop5:ItemType>
     </desktop4:FileExplorerContextMenus></desktop4:Extension>

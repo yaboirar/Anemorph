@@ -20,7 +20,7 @@ impl App {
                 ui.scope(|ui| {
                     ui.spacing_mut().item_spacing.y = 2.;
                     ui.horizontal(|ui| {
-                        ui.heading("About Anemorph");
+                        ui.heading(tr(ui.ctx(), "About Anemorph"));
                         ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                             let (rect, _) =
                                 ui.allocate_exact_size(Vec2::splat(22.), Sense::hover());
@@ -40,18 +40,21 @@ impl App {
                         });
                     });
                     ui.label(
-                        RichText::new(format!("Version {APP_VERSION}"))
+                        RichText::new(format!("{} {APP_VERSION}", tr(ui.ctx(), "Version")))
                             .size(11.)
                             .color(p.muted),
                     );
                 });
                 ui.add_space(8.);
-                ui.label("A free, open-source file renamer for anime, TV, and movies.");
+                ui.label(tr(
+                    ui.ctx(),
+                    "A free, open-source file renamer for anime, TV, and movies.",
+                ));
                 ui.add_space(8.);
                 ui.separator();
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 4.;
-                    ui.label(RichText::new("Created by").color(p.muted));
+                    ui.label(RichText::new(tr(ui.ctx(), "Created by")).color(p.muted));
                     ui.hyperlink_to("@yaboirar", "https://github.com/yaboirar");
                 });
             });
@@ -83,7 +86,7 @@ impl App {
                 ui.set_width((ctx.input(|i| i.content_rect().width()) - 80.).clamp(240., 420.));
                 ui.spacing_mut().item_spacing.y = 8.;
                 ui.horizontal(|ui| {
-                    ui.heading("Mark as episode");
+                    ui.heading(tr(ui.ctx(), "Mark as episode"));
                     ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                         let (rect, _) = ui.allocate_exact_size(Vec2::splat(22.), Sense::hover());
                         if icon_button(
@@ -125,7 +128,7 @@ impl App {
                 ui.add_space(4.);
                 ui.horizontal(|ui| {
                     ui.vertical(|ui| {
-                        ui.label("Season");
+                        ui.label(tr(ui.ctx(), "Season"));
                         ui.add(
                             egui::DragValue::new(&mut dialog.season)
                                 .range(0..=999)
@@ -134,11 +137,14 @@ impl App {
                     });
                     ui.add_space(18.);
                     ui.vertical(|ui| {
-                        ui.label(if dialog.unknown_count > 1 {
-                            "First episode"
-                        } else {
-                            "Episode"
-                        });
+                        ui.label(tr(
+                            ui.ctx(),
+                            if dialog.unknown_count > 1 {
+                                "First episode"
+                            } else {
+                                "Episode"
+                            },
+                        ));
                         ui.add(
                             egui::DragValue::new(&mut dialog.first_episode)
                                 .range(0..=9999)
@@ -158,7 +164,7 @@ impl App {
                 );
                 if dialog.entries.len() > dialog.unknown_count {
                     ui.label(
-                        RichText::new("Existing episode numbers are kept.")
+                        RichText::new(tr(ui.ctx(), "Existing episode numbers are kept."))
                             .size(12.)
                             .color(p.muted),
                     );
@@ -169,8 +175,10 @@ impl App {
                 ui.add_space(4.);
                 if ui
                     .add(
-                        egui::Button::new(RichText::new("Apply").color(on_color(p.accent)))
-                            .fill(p.accent),
+                        egui::Button::new(
+                            RichText::new(tr(ui.ctx(), "Apply")).color(on_color(p.accent)),
+                        )
+                        .fill(p.accent),
                     )
                     .clicked()
                 {
@@ -194,7 +202,7 @@ impl App {
             }
             ui.add_space(8.);
             ui.vertical(|ui| {
-                ui.label(RichText::new("Hex color").color(p.muted));
+                ui.label(RichText::new(tr(ui.ctx(), "Hex color")).color(p.muted));
                 let edit = ui.add(egui::TextEdit::singleline(&mut self.hex).desired_width(150.));
                 if edit.changed() {
                     if let Some(c) = parse_hex(&self.hex) {
@@ -213,17 +221,18 @@ impl App {
                     .unwrap_or(DEFAULT_ACCENT);
                 let pending = valid.is_some_and(|c| c != saved);
                 ui.horizontal(|ui| {
-                    let button = egui::Button::new(RichText::new("Apply").color(if pending {
-                        on_color(p.accent)
-                    } else {
-                        p.text
-                    }))
-                    .fill(if pending { p.accent } else { p.button })
-                    .sense(if pending {
-                        Sense::click()
-                    } else {
-                        Sense::hover()
-                    });
+                    let button =
+                        egui::Button::new(RichText::new(tr(ui.ctx(), "Apply")).color(if pending {
+                            on_color(p.accent)
+                        } else {
+                            p.text
+                        }))
+                        .fill(if pending { p.accent } else { p.button })
+                        .sense(if pending {
+                            Sense::click()
+                        } else {
+                            Sense::hover()
+                        });
                     if ui.add(button).clicked() && pending {
                         let previous = self.settings.accent_hex.clone();
                         self.settings.accent_hex = valid.map(hex);
@@ -238,13 +247,17 @@ impl App {
                             }
                         }
                     }
-                    if ui.button("Reset").clicked() {
+                    if ui.button(tr(ui.ctx(), "Reset")).clicked() {
                         self.draft_color = DEFAULT_ACCENT;
                         self.hex = hex(self.draft_color);
                         self.color_message = "Unsaved color".into();
                     }
                 });
-                ui.label(RichText::new(&self.color_message).size(11.).color(p.muted));
+                ui.label(
+                    RichText::new(tr(ui.ctx(), &self.color_message))
+                        .size(11.)
+                        .color(p.muted),
+                );
             });
         });
     }
@@ -344,8 +357,9 @@ impl App {
             self.settings.table_status_width,
         );
         let offsets = columns.offsets();
-        let (ready, included, _) = self.row_counts();
-        let all = ready > 0 && ready == included;
+        let total = self.rows.len();
+        let included = self.rows.iter().filter(|r| r.included).count();
+        let all = total > 0 && total == included;
         let some = included > 0;
         let check = Rect::from_center_size(
             Pos2::new(header.left() + 19., header.center().y),
@@ -355,7 +369,7 @@ impl App {
             check,
             4,
             if some { p.accent } else { p.input },
-            Stroke::new(1.0_f32, if ready > 0 { p.muted } else { p.line }),
+            Stroke::new(1.0_f32, if total > 0 { p.muted } else { p.line }),
             StrokeKind::Inside,
         );
         if all {
@@ -379,14 +393,14 @@ impl App {
         let response = ui.interact(
             check.expand(5.),
             Id::new("include_all_header"),
-            if ready > 0 {
+            if total > 0 {
                 Sense::click()
             } else {
                 Sense::hover()
             },
         );
         if response
-            .on_hover_text(if all {
+            .on_hover_text(if some {
                 "Exclude all files"
             } else {
                 "Include all files"
@@ -394,8 +408,8 @@ impl App {
             .clicked()
         {
             self.counts.set(None);
-            for row in self.rows.iter_mut().filter(|r| r.ready) {
-                row.included = !all;
+            for row in &mut self.rows {
+                row.included = !some;
             }
         }
         for (i, label) in ["Original filename", "New filename", "Status"]
@@ -418,11 +432,14 @@ impl App {
                 ui.painter().text(
                     top + Vec2::new(width / 2., 38. + remaining / 2.),
                     Align2::CENTER_CENTER,
-                    if self.root.is_some() {
-                        "No files match the container filters"
-                    } else {
-                        "Choose or drop a folder"
-                    },
+                    tr(
+                        ui.ctx(),
+                        if self.root.is_some() {
+                            "No files match the container filters"
+                        } else {
+                            "Choose or drop a folder"
+                        },
+                    ),
                     FontId::proportional(15.),
                     p.muted,
                 );
@@ -462,7 +479,7 @@ impl App {
                         cb,
                         4,
                         if row.included { p.accent } else { p.input },
-                        Stroke::new(1.0_f32, if row.ready { p.muted } else { p.line }),
+                        Stroke::new(1.0_f32, p.muted),
                         StrokeKind::Inside,
                     );
                     if row.included {
@@ -493,7 +510,7 @@ impl App {
                             engine::MediaKind::Movie => "Movie",
                             engine::MediaKind::Episode => "Episode",
                         });
-                        ui.label(row.status.as_ref());
+                        ui.label(tr(ui.ctx(), row.status.as_ref()));
                         ui.label(&row.original);
                         ui.label(&row.output);
                     });
@@ -515,27 +532,30 @@ impl App {
                         );
                     }
                     response.context_menu(|ui| {
-                        if ui.button("Mark as movie").clicked() {
+                        if ui.button(tr(ui.ctx(), "Mark as movie")).clicked() {
                             marker_action = Some((index, Some(engine::MediaKind::Movie)));
                             ui.close();
                         }
-                        if ui.button("Mark as episode").clicked() {
+                        ui.separator();
+                        if ui.button(tr(ui.ctx(), "Mark as episode")).clicked() {
                             marker_action = Some((index, Some(engine::MediaKind::Episode)));
                             ui.close();
                         }
                         if self
                             .media_markers
                             .contains_key(&engine::media_marker_key(&row.source))
-                            && ui.button("Use automatic detection").clicked()
                         {
-                            marker_action = Some((index, None));
-                            ui.close();
+                            ui.separator();
+                            if ui.button(tr(ui.ctx(), "Use automatic detection")).clicked() {
+                                marker_action = Some((index, None));
+                                ui.close();
+                            }
                         }
                     });
                     if response.secondary_clicked() && !row.highlighted {
                         action = Some((index, false, Modifiers::NONE));
                     }
-                    if check.clicked() && row.ready {
+                    if check.clicked() {
                         action = Some((index, true, ui.input(|i| i.modifiers)))
                     } else if response.clicked() {
                         action = Some((index, false, ui.input(|i| i.modifiers)))
@@ -552,9 +572,9 @@ impl App {
     pub(super) fn settings_ui(&mut self, ui: &mut Ui) {
         let p = self.palette();
         let previous = self.settings.clone();
-        ui.heading("Settings");
+        ui.heading(tr(ui.ctx(), "Settings"));
         ui.add_space(18.);
-        ui.strong("Appearance");
+        ui.strong(tr(ui.ctx(), "Appearance"));
         card(ui, p, |ui| {
             toggle(ui, "Dark mode", &mut self.settings.dark_mode, p);
             ui.separator();
@@ -563,14 +583,14 @@ impl App {
             toggle(ui, "Animations", &mut self.settings.animations, p);
             ui.separator();
             ui.horizontal(|ui| {
-                ui.label("Interface zoom");
+                ui.label(tr(ui.ctx(), "Interface zoom"));
                 ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui.button("+").clicked() {
                         self.settings.zoom_percent = (self.settings.zoom_percent + 10).min(150)
                     }
                     if ui
                         .button(format!("{}%", (self.effective_zoom * 100.).round()))
-                        .on_hover_text("Reset zoom")
+                        .on_hover_text(tr(ui.ctx(), "Reset zoom"))
                         .clicked()
                     {
                         self.settings.zoom_percent = 100
@@ -581,11 +601,23 @@ impl App {
                     }
                 });
             });
+            ui.separator();
+            ui.label(tr(ui.ctx(), "Highlight color"));
+            self.color_editor(ui, p);
         });
-        ui.strong("Highlight color");
-        card(ui, p, |ui| self.color_editor(ui, p));
+        ui.strong(tr(ui.ctx(), "Language"));
+        card(ui, p, |ui| {
+            egui::ComboBox::from_id_salt("interface_language")
+                .selected_text(crate::i18n::language_name(&self.settings.language))
+                .width(ui.available_width().min(320.))
+                .show_ui(ui, |ui| {
+                    for (code, name) in crate::i18n::LANGUAGES {
+                        ui.selectable_value(&mut self.settings.language, code.to_string(), *name);
+                    }
+                });
+        });
         self.apply_preferences(previous, ui.ctx());
-        ui.strong("Integration");
+        ui.strong(tr(ui.ctx(), "Integration"));
         self.integration.poll(
             self.uninstaller
                 .as_ref()
@@ -596,7 +628,7 @@ impl App {
         card(ui, p, |ui| {
             ui.horizontal(|ui| {
                 ui.set_min_height(34.);
-                ui.label("First right-click menu");
+                ui.label(tr(ui.ctx(), "First right-click menu"));
                 let label = if self.integration.pending {
                     "Working..."
                 } else if self.integration.enabled {
@@ -606,25 +638,26 @@ impl App {
                 };
                 ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                     let active = !self.integration.enabled && !self.integration.pending;
-                    let button = egui::Button::new(RichText::new(label).color(if active {
-                        p.accent
-                    } else {
-                        p.text
-                    }))
-                    .min_size(Vec2::new(94., 34.))
-                    .fill(if active {
-                        blend(p.accent, p.surface, 0.09)
-                    } else {
-                        p.button
-                    })
-                    .stroke(Stroke::new(
-                        1.0_f32,
-                        if active {
-                            blend(p.accent, p.line, 0.45)
+                    let button =
+                        egui::Button::new(RichText::new(tr(ui.ctx(), label)).color(if active {
+                            p.accent
                         } else {
-                            p.line
-                        },
-                    ));
+                            p.text
+                        }))
+                        .min_size(Vec2::new(94., 34.))
+                        .fill(if active {
+                            blend(p.accent, p.surface, 0.09)
+                        } else {
+                            p.button
+                        })
+                        .stroke(Stroke::new(
+                            1.0_f32,
+                            if active {
+                                blend(p.accent, p.line, 0.45)
+                            } else {
+                                p.line
+                            },
+                        ));
                     if ui
                         .add_enabled(
                             self.uninstaller.is_some() && !self.integration.pending,
@@ -644,11 +677,11 @@ impl App {
                 });
             });
             if !self.integration.enabled {
-                ui.label(RichText::new("Windows may ask for administrator approval to trust Anemorph's signing certificate.").small().color(p.muted));
+                ui.label(RichText::new(tr(ui.ctx(), "Windows may ask for administrator approval to trust Anemorph's signing certificate.")).small().color(p.muted));
             }
             if !self.integration.message.is_empty() {
                 ui.label(
-                    RichText::new(&self.integration.message)
+                    RichText::new(tr(ui.ctx(), &self.integration.message))
                         .small()
                         .color(p.muted),
                 );
@@ -660,6 +693,30 @@ impl App {
             && !self.integration.pending;
         let mut uninstall = false;
         card(ui, p, |ui| {
+            ui.horizontal(|ui| {
+                ui.set_min_height(34.);
+                ui.label(tr(ui.ctx(), "Repair Anemorph"));
+                ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui
+                        .add_enabled(
+                            enabled,
+                            egui::Button::new(tr(ui.ctx(), "Repair")).min_size(Vec2::new(94., 34.)),
+                        )
+                        .clicked()
+                    {
+                        self.repair(ui.ctx());
+                    }
+                });
+            });
+            ui.label(
+                RichText::new(tr(
+                    ui.ctx(),
+                    "Reload saved preferences and files, and repair Explorer integration.",
+                ))
+                .small()
+                .color(p.muted),
+            );
+            ui.separator();
             uninstall = uninstall_action(ui, p, enabled)
                 .on_hover_text(if self.uninstaller.is_some() {
                     "Open the clean uninstaller. Your videos are kept."
@@ -685,11 +742,11 @@ impl App {
     pub(super) fn configuration_ui(&mut self, ui: &mut Ui) {
         let p = self.palette();
         let previous = self.settings.clone();
-        ui.heading("Configuration");
+        ui.heading(tr(ui.ctx(), "Configuration"));
         ui.add_space(18.);
-        ui.strong("Filename format");
+        ui.strong(tr(ui.ctx(), "Filename format"));
         card(ui, p, |ui| {
-            ui.label(RichText::new("Episodes").color(p.muted));
+            ui.label(RichText::new(tr(ui.ctx(), "Episodes")).color(p.muted));
             ui.add(
                 egui::TextEdit::singleline(&mut self.format_draft)
                     .desired_width(f32::INFINITY)
@@ -729,8 +786,9 @@ impl App {
                     false
                 }
             };
+            format_index(ui, false);
             ui.add_space(8.);
-            ui.label(RichText::new("Movies").color(p.muted));
+            ui.label(RichText::new(tr(ui.ctx(), "Movies")).color(p.muted));
             ui.add(
                 egui::TextEdit::singleline(&mut self.movie_format_draft)
                     .desired_width(f32::INFINITY)
@@ -773,55 +831,35 @@ impl App {
                 }
             };
             ui.add_space(6.);
+            format_index(ui, true);
             let pending = (self.format_draft != self.settings.number_format
                 || self.movie_format_draft != self.settings.movie_format)
                 && episode_valid
                 && movie_valid;
             ui.horizontal(|ui| {
-                let apply = egui::Button::new(RichText::new("Apply").color(if pending {
-                    on_color(p.accent)
-                } else {
-                    p.text
-                }))
-                .fill(if pending { p.accent } else { p.button })
-                .sense(if pending {
-                    Sense::click()
-                } else {
-                    Sense::hover()
-                });
+                let apply =
+                    egui::Button::new(RichText::new(tr(ui.ctx(), "Apply")).color(if pending {
+                        on_color(p.accent)
+                    } else {
+                        p.text
+                    }))
+                    .fill(if pending { p.accent } else { p.button })
+                    .sense(if pending {
+                        Sense::click()
+                    } else {
+                        Sense::hover()
+                    });
                 if ui.add(apply).clicked() && pending {
                     self.settings.number_format = self.format_draft.clone();
                     self.settings.movie_format = self.movie_format_draft.clone();
                 }
-                if ui.button("Reset").clicked() {
+                if ui.button(tr(ui.ctx(), "Reset")).clicked() {
                     self.format_draft = naming::DEFAULT_FORMAT.into();
                     self.movie_format_draft = naming::DEFAULT_MOVIE_FORMAT.into();
                 }
             });
-            ui.collapsing("Format tokens", |ui| {
-                egui::Grid::new("filename_tokens")
-                    .num_columns(2)
-                    .spacing([18., 8.])
-                    .show(ui, |ui| {
-                        for (token, meaning) in [
-                            ("[S] / [Season]", "S / Season"),
-                            ("[E] / [Episode]", "E / Episode"),
-                            ("[SeaNum]", "Season number"),
-                            ("[EpsNum]", "Episode number"),
-                            ("[Num]", "Two-digit numbers"),
-                            ("[FixNum]", "Numbers without leading zeros"),
-                            ("[Movie Name]", "Movie title from the filename"),
-                            ("[Movie]", "Movie"),
-                            ("[Space]", "One space"),
-                        ] {
-                            ui.monospace(token);
-                            ui.label(meaning);
-                            ui.end_row();
-                        }
-                    });
-            });
         });
-        ui.strong("Naming");
+        ui.strong(tr(ui.ctx(), "Naming"));
         card(ui, p, |ui| {
             toggle(
                 ui,
@@ -845,7 +883,7 @@ impl App {
             );
             ui.separator();
             ui.horizontal(|ui| {
-                ui.label("Season when none is found");
+                ui.label(tr(ui.ctx(), "Season when none is found"));
                 ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.add(egui::DragValue::new(&mut self.settings.default_season).range(0..=999));
                 });
@@ -859,7 +897,7 @@ impl App {
             );
             if self.settings.manual_numbering {
                 ui.horizontal(|ui| {
-                    ui.label("First episode for unrecognized files");
+                    ui.label(tr(ui.ctx(), "First episode for unrecognized files"));
                     ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.add(
                             egui::DragValue::new(&mut self.settings.first_episode).range(0..=9999),
@@ -868,11 +906,11 @@ impl App {
                 });
             }
         });
-        ui.strong("Folders and files");
+        ui.strong(tr(ui.ctx(), "Folders and files"));
         card(ui, p, |ui| {
             toggle(ui, "Include subfolders", &mut self.settings.subfolders, p);
             ui.separator();
-            ui.label("Home filter options");
+            ui.label(tr(ui.ctx(), "Home filter options"));
             container_options(ui, &mut self.settings, p);
             ui.separator();
             toggle(
@@ -882,7 +920,7 @@ impl App {
                 p,
             );
         });
-        if ui.button("Reset configuration").clicked() {
+        if ui.button(tr(ui.ctx(), "Reset configuration")).clicked() {
             let defaults = Settings::default();
             self.settings.auto_detect = defaults.auto_detect;
             self.settings.manual_numbering = defaults.manual_numbering;
@@ -904,6 +942,9 @@ impl App {
     }
     fn apply_preferences(&mut self, previous: Settings, ctx: &Context) {
         if self.settings != previous {
+            if self.settings.language != previous.language {
+                crate::i18n::configure(ctx, &self.settings.language);
+            }
             if self.settings.home_filter_options != previous.home_filter_options {
                 self.container_anchor = None;
             }
@@ -1165,11 +1206,17 @@ impl eframe::App for App {
             .exact_height(52_f32.max(46. / ctx.zoom_factor()))
             .frame(egui::Frame::NONE.fill(p.title_bar))
             .show(ctx, |ui| self.nav(ui));
-        if self.page == Page::Home {
+        {
             egui::TopBottomPanel::bottom("footer")
-                .exact_height(60.)
+                .exact_height(60_f32.max(52. / ctx.zoom_factor()))
                 .frame(egui::Frame::NONE.fill(p.surface).inner_margin(8.))
-                .show(ctx, |ui| self.footer(ui));
+                .show(ctx, |ui| {
+                    if self.page == Page::Home {
+                        self.footer(ui);
+                    } else {
+                        self.brand_label(ui);
+                    }
+                });
         }
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE.fill(p.bg).inner_margin(20.))

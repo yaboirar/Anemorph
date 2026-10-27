@@ -1,4 +1,5 @@
 use super::*;
+use crate::i18n::tr;
 mod views;
 use egui::{
     Align2, FontId, Id, Layout, Pos2, Rect, Response, RichText, Sense, Stroke, StrokeKind, Ui,
@@ -114,13 +115,13 @@ mod title_bar_tests {
             assert!((app.nav_rects[1].left() - app.nav_rects[0].right() - 6.).abs() < 0.01);
             assert!((app.nav_rects[2].left() - app.nav_rects[1].right() - 6.).abs() < 0.01);
         }
-        assert!(app.nav_rects[2].width() > 80.);
+        assert_eq!(app.nav_rects[2].width(), 36.);
         assert_eq!(app.nav_rects[0].width(), 36.);
         app.navigate(Page::Configuration, &ctx);
         assert_eq!(app.tab_target, 2.);
     }
     #[test]
-    fn header_checkbox_toggles_ready_files_and_leaves_skipped_files_out() {
+    fn header_checkbox_toggles_all_files_without_changing_readiness() {
         fn render(ctx: &Context, app: &mut App, events: Vec<egui::Event>) {
             let _ = ctx.run(
                 egui::RawInput {
@@ -167,7 +168,7 @@ mod title_bar_tests {
                 );
             }
             assert_eq!(app.rows[0].included, expected);
-            assert!(!app.rows[1].included);
+            assert_eq!(app.rows[1].included, expected);
         }
     }
     #[test]
@@ -217,6 +218,9 @@ mod title_bar_tests {
                         .exact_height(52.)
                         .frame(egui::Frame::NONE)
                         .show(ctx, |ui| app.nav(ui));
+                    egui::TopBottomPanel::bottom("footer")
+                        .exact_height(60.)
+                        .show(ctx, |ui| app.footer(ui));
                     app.about_dialog(ctx);
                 },
             );
@@ -704,6 +708,7 @@ impl App {
         let mut amounts = [0.; 3];
         let mut widths = [36.; 3];
         for (i, (label, _)) in pages.iter().enumerate() {
+            let label = tr(ui.ctx(), label);
             let expanded = hover == Some(i)
                 || self
                     .smoke
@@ -712,8 +717,6 @@ impl App {
             let t = if self.settings.animations {
                 ui.ctx()
                     .animate_bool_with_time(Id::new(("nav-label", i)), expanded, 0.18)
-            } else if expanded {
-                1.
             } else {
                 0.
             };
@@ -747,6 +750,7 @@ impl App {
         );
         ui.painter().rect_filled(pill, 6, p.button);
         for (i, (label, page)) in pages.into_iter().enumerate() {
+            let label = tr(ui.ctx(), label);
             let r = self.nav_rects[i];
             let response = ui.interact(r, Id::new(("navigation", i)), Sense::click_and_drag());
             if response.drag_started_by(egui::PointerButton::Primary) {
@@ -779,69 +783,6 @@ impl App {
                 self.navigate(page, ui.ctx());
             }
         }
-        let zoom = ui.ctx().zoom_factor();
-        let native_width = rect.width() * zoom;
-        let size = (native_width / 60.).clamp(14., 19.) / zoom;
-        let brand_font = FontId::new(size, egui::FontFamily::Name("brand".into()));
-        let brand_galley =
-            ui.painter()
-                .layout_no_wrap("Anemorph".into(), brand_font.clone(), p.text);
-        let brand_size = brand_galley.size();
-        let brand_rect = Rect::from_min_size(
-            Pos2::new(14. / zoom, 8. / zoom),
-            Vec2::new(brand_size.x + 8. / zoom, 36. / zoom),
-        );
-        let brand = ui.interact(brand_rect, Id::new("about_brand"), Sense::click_and_drag());
-        if brand.clicked() {
-            self.about_open = true;
-        }
-        if brand.drag_started_by(egui::PointerButton::Primary) {
-            self.start_window_drag(ui.ctx());
-        }
-        if brand.hovered() {
-            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-        }
-        brand.widget_info(|| {
-            egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "About Anemorph")
-        });
-        let brand_hovered = brand.hovered() || self.smoke.as_ref().is_some_and(|s| s.stage == 1);
-        let glow = if self.settings.animations {
-            ui.ctx()
-                .animate_bool_with_time(Id::new("brand_glow"), brand_hovered, 0.18)
-        } else if brand_hovered {
-            1.
-        } else {
-            0.
-        };
-        let glow = 1. - (1. - glow).powi(3);
-        let origin = Pos2::new(18. / zoom, 19. / zoom - brand_size.y / 2.);
-        // Reuse the same glyph layout for a small fixed halo. No blur surfaces
-        // or idle timer: only hover transitions request additional frames.
-        if glow > 0.001 {
-            for (radius, opacity) in [(3.5, 0.025), (1.5, 0.065)] {
-                for step in 0..8 {
-                    let offset =
-                        Vec2::angled(step as f32 * std::f32::consts::TAU / 8.) * (radius / zoom);
-                    ui.painter().galley_with_override_text_color(
-                        origin + offset,
-                        brand_galley.clone(),
-                        p.accent.gamma_multiply(glow * opacity),
-                    );
-                }
-            }
-        }
-        ui.painter().galley_with_override_text_color(
-            origin,
-            brand_galley,
-            blend(p.accent, p.text, glow),
-        );
-        ui.painter().text(
-            Pos2::new(18. / zoom, 35. / zoom),
-            Align2::LEFT_CENTER,
-            concat!("v", env!("CARGO_PKG_VERSION")),
-            FontId::proportional(10. / zoom),
-            p.muted,
-        );
         let title = Rect::from_min_max(rect.min + Vec2::new(5., 5.), rect.max - Vec2::new(5., 0.));
         let controls = Rect::from_min_size(
             Pos2::new(rect.right() - 132., rect.top()),
@@ -851,7 +792,6 @@ impl App {
             i.pointer.interact_pos().is_some_and(|pos| {
                 title.contains(pos)
                     && !controls.contains(pos)
-                    && !brand_rect.contains(pos)
                     && !self.nav_rects.iter().any(|r| r.contains(pos))
             })
         });
@@ -950,9 +890,74 @@ impl App {
             Color32::from_white_alpha(if self.settings.dark_mode { 6 } else { 8 }),
         );
     }
+    fn brand_label(&mut self, ui: &mut Ui) {
+        let p = self.palette();
+        let rect = ui.max_rect();
+        let zoom = ui.ctx().zoom_factor();
+        let native_width = ui.ctx().content_rect().width() * zoom;
+        let size = (native_width / 60.).clamp(14., 19.) / zoom;
+        let brand_font = FontId::new(size, egui::FontFamily::Name("brand".into()));
+        let brand_galley =
+            ui.painter()
+                .layout_no_wrap("Anemorph".into(), brand_font.clone(), p.text);
+        let brand_size = brand_galley.size();
+        let brand_rect = Rect::from_min_size(
+            rect.left_top() + Vec2::new(8. / zoom, 4. / zoom),
+            Vec2::new(brand_size.x + 8. / zoom, 36. / zoom),
+        );
+        let brand = ui.interact(brand_rect, Id::new("about_brand"), Sense::click());
+        if brand.clicked() {
+            self.about_open = true;
+        }
+        if brand.hovered() {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+        }
+        brand.widget_info(|| {
+            egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "About Anemorph")
+        });
+        let brand_hovered = brand.hovered() || self.smoke.as_ref().is_some_and(|s| s.stage == 1);
+        let glow = if self.settings.animations {
+            ui.ctx()
+                .animate_bool_with_time(Id::new("brand_glow"), brand_hovered, 0.18)
+        } else if brand_hovered {
+            1.
+        } else {
+            0.
+        };
+        let glow = 1. - (1. - glow).powi(3);
+        let origin = rect.left_top() + Vec2::new(10. / zoom, 15. / zoom - brand_size.y / 2.);
+        // Reuse the same glyph layout for a small fixed halo. No blur surfaces
+        // or idle timer: only hover transitions request additional frames.
+        if glow > 0.001 {
+            for (radius, opacity) in [(3.5, 0.025), (1.5, 0.065)] {
+                for step in 0..8 {
+                    let offset =
+                        Vec2::angled(step as f32 * std::f32::consts::TAU / 8.) * (radius / zoom);
+                    ui.painter().galley_with_override_text_color(
+                        origin + offset,
+                        brand_galley.clone(),
+                        p.accent.gamma_multiply(glow * opacity),
+                    );
+                }
+            }
+        }
+        ui.painter().galley_with_override_text_color(
+            origin,
+            brand_galley,
+            blend(p.accent, p.text, glow),
+        );
+        ui.painter().text(
+            rect.left_top() + Vec2::new(10. / zoom, 31. / zoom),
+            Align2::LEFT_CENTER,
+            concat!("v", env!("CARGO_PKG_VERSION")),
+            FontId::proportional(10. / zoom),
+            p.muted,
+        );
+    }
     fn footer(&mut self, ui: &mut Ui) {
         let p = self.palette();
         let rect = ui.max_rect();
+        self.brand_label(ui);
         let (_, count, _) = self.row_counts();
         let y = rect.center().y - 18.;
         let rename = Rect::from_min_size(Pos2::new(rect.right() - 140., y), Vec2::new(136., 36.));
@@ -961,10 +966,10 @@ impl App {
             rect.min + Vec2::new(8., 10.),
             Pos2::new(undo.left() - 12., rect.bottom() - 8.),
         );
-        if self.error && text.width() > 30. {
+        if self.error && text.width() > 170. {
             paint_left(
                 ui,
-                text,
+                Rect::from_min_max(text.min + Vec2::new(130., 0.), text.max),
                 &self.status,
                 Color32::from_rgb(242, 158, 152),
                 12.,
@@ -972,7 +977,7 @@ impl App {
         }
         if ui
             .add_enabled_ui(!self.busy && self.undo_available, |ui| {
-                ui.put(undo, egui::Button::new("Undo last batch"))
+                ui.put(undo, egui::Button::new(tr(ui.ctx(), "Undo last batch")))
             })
             .inner
             .clicked()
@@ -984,7 +989,11 @@ impl App {
                 ui.put(
                     rename,
                     egui::Button::new(
-                        RichText::new(format!("Rename {count} files")).color(on_color(p.accent)),
+                        RichText::new(
+                            tr(ui.ctx(), "Rename {count} files")
+                                .replace("{count}", &count.to_string()),
+                        )
+                        .color(on_color(p.accent)),
                     )
                     .fill(p.accent),
                 )
@@ -1006,7 +1015,21 @@ impl App {
         ui.painter().rect_filled(rect, 7, p.input);
         ui.painter()
             .rect_stroke(rect, 7, Stroke::new(1.0_f32, p.line), StrokeKind::Inside);
-        let bw = if kind == "Browse" { 68. } else { 36. };
+        let bw = if kind == "Browse" {
+            (ui.painter()
+                .layout_no_wrap(
+                    tr(ui.ctx(), "Browse").into(),
+                    FontId::proportional(13.),
+                    p.text,
+                )
+                .size()
+                .x
+                + 24.)
+                .max(68.)
+                .min(rect.width() * 0.45)
+        } else {
+            36.
+        };
         let input = Rect::from_min_max(
             rect.min + Vec2::new(2., 1.),
             Pos2::new(rect.right() - bw, rect.bottom() - 1.),
@@ -1016,11 +1039,14 @@ impl App {
             egui::TextEdit::singleline(text)
                 .id(Id::new(id))
                 .hint_text(
-                    RichText::new(if kind == "Browse" {
-                        "Paste a folder path"
-                    } else {
-                        ""
-                    })
+                    RichText::new(tr(
+                        ui.ctx(),
+                        if kind == "Browse" {
+                            "Paste a folder path"
+                        } else {
+                            ""
+                        },
+                    ))
                     .color(p.muted),
                 )
                 .frame(false)
@@ -1033,12 +1059,12 @@ impl App {
             rect.max - Vec2::new(3., 3.),
         );
         let button = if kind == "Browse" {
-            ui.put(r, egui::Button::new("Browse").frame(false))
+            ui.put(r, egui::Button::new(tr(ui.ctx(), "Browse")).frame(false))
         } else {
             let response = ui.interact(r, Id::new("refresh_series"), Sense::click());
             let c = r.center();
             draw_refresh(ui.painter(), c, 6., p.muted);
-            response.on_hover_text("Restore detected series name")
+            response.on_hover_text(tr(ui.ctx(), "Restore detected series name"))
         };
         (edit, button.clicked())
     }
@@ -1055,14 +1081,14 @@ impl App {
         ui.painter().text(
             top,
             Align2::LEFT_TOP,
-            "Folder",
+            tr(ui.ctx(), "Folder"),
             FontId::proportional(12.),
             p.muted,
         );
         ui.painter().text(
             top + Vec2::new(left + 16., 0.),
             Align2::LEFT_TOP,
-            "Series name",
+            tr(ui.ctx(), "Series name"),
             FontId::proportional(12.),
             p.muted,
         );
@@ -1099,82 +1125,38 @@ impl App {
         }
         ui.advance_cursor_after_rect(Rect::from_min_size(top, Vec2::new(width, 74.)));
         let (_, _, selected) = self.row_counts();
-        ui.horizontal(|ui| {
-            ui.label(RichText::new("Files").size(16.).strong());
-            ui.label(
-                RichText::new(format!(
-                    "{} {}files",
-                    self.rows.len(),
-                    if self.selected_files.is_some() {
-                        "selected "
-                    } else {
-                        ""
-                    }
-                ))
-                .size(12.)
-                .color(p.muted),
-            );
-            if selected > 0 {
-                ui.label(
-                    RichText::new(format!("{selected} selected"))
-                        .size(12.)
-                        .color(p.muted),
-                );
-            }
-        });
-        let (toolbar, _) = ui.allocate_exact_size(Vec2::new(width, 36.), Sense::hover());
-        let left = Rect::from_min_max(toolbar.min, toolbar.max - Vec2::new(88., 0.));
-        ui.scope_builder(
-            egui::UiBuilder::new()
-                .max_rect(left)
-                .layout(Layout::left_to_right(egui::Align::Center)),
-            |ui| {
-                ui.spacing_mut().item_spacing.x = 8.;
-                let enabled = !self.busy && selected > 0;
-                if ui
-                    .add_enabled(
-                        enabled,
-                        egui::Button::new("Include")
-                            .frame(false)
-                            .min_size(Vec2::new(72., 32.)),
-                    )
-                    .clicked()
-                {
-                    self.mark(Some(true));
-                }
-                if ui
-                    .add_enabled(
-                        enabled,
-                        egui::Button::new("Exclude")
-                            .frame(false)
-                            .min_size(Vec2::new(72., 32.)),
-                    )
-                    .clicked()
-                {
-                    self.mark(Some(false));
-                }
-                if ui
-                    .add_enabled(
-                        !self.busy && !self.rows.is_empty(),
-                        egui::Button::new(if self.any_file_selected() {
-                            "Unselect all"
-                        } else {
-                            "Select all"
-                        })
-                        .frame(false)
-                        .min_size(Vec2::new(88., 32.)),
-                    )
-                    .clicked()
-                {
-                    self.toggle_all_files();
-                }
-            },
-        );
-        let filter_rect = Rect::from_min_size(
-            Pos2::new(toolbar.right() - 32., toolbar.top() + 2.),
+        let (heading, _) = ui.allocate_exact_size(Vec2::new(width, 36.), Sense::hover());
+        let filter_rect = Rect::from_center_size(
+            Pos2::new(heading.right() - 16., heading.center().y),
             Vec2::splat(32.),
         );
         let refresh_rect = filter_rect.translate(Vec2::new(-40., 0.));
+        ui.painter().text(
+            heading.left_center(),
+            Align2::LEFT_CENTER,
+            tr(ui.ctx(), "Files"),
+            FontId::proportional(16.),
+            p.text,
+        );
+        let counts = format!(
+            "{} {}  |  {} {}",
+            self.rows.len(),
+            tr(ui.ctx(), "files"),
+            selected,
+            tr(ui.ctx(), "selected")
+        );
+        ui.painter()
+            .with_clip_rect(Rect::from_min_max(
+                heading.min + Vec2::new(70., 0.),
+                Pos2::new(refresh_rect.left() - 8., heading.bottom()),
+            ))
+            .text(
+                Pos2::new(refresh_rect.left() - 12., heading.center().y),
+                Align2::RIGHT_CENTER,
+                counts,
+                FontId::proportional(12.),
+                p.muted,
+            );
         let refresh = icon_button(
             ui,
             refresh_rect,
@@ -1211,7 +1193,7 @@ impl App {
             )
             .show(|ui| {
                 ui.set_width(232.);
-                ui.label(RichText::new("Containers").strong());
+                ui.label(RichText::new(tr(ui.ctx(), "Containers")).strong());
                 ui.add_space(6.);
                 egui::ScrollArea::vertical()
                     .max_height((ui.ctx().content_rect().height() * 0.5).min(230.))
@@ -1225,6 +1207,42 @@ impl App {
                 self.open(root, false, ui.ctx());
             }
         }
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing.x = 8.;
+            let enabled = !self.busy && !self.rows.is_empty();
+            if ui
+                .add_enabled(
+                    enabled,
+                    egui::Button::new(tr(ui.ctx(), "Include")).min_size(Vec2::new(72., 32.)),
+                )
+                .clicked()
+            {
+                self.mark(Some(true));
+            }
+            if ui
+                .add_enabled(
+                    enabled,
+                    egui::Button::new(tr(ui.ctx(), "Exclude")).min_size(Vec2::new(72., 32.)),
+                )
+                .clicked()
+            {
+                self.mark(Some(false));
+            }
+            let label = if self.any_file_selected() {
+                "Unselect all"
+            } else {
+                "Select all"
+            };
+            if ui
+                .add_enabled(
+                    enabled,
+                    egui::Button::new(tr(ui.ctx(), label)).min_size(Vec2::new(88., 32.)),
+                )
+                .clicked()
+            {
+                self.toggle_all_files();
+            }
+        });
         ui.add_space(4.);
         self.table(ui, p);
     }
@@ -1317,7 +1335,7 @@ fn icon_button(
         ActionIcon::Refresh => "Refresh files",
     };
     response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, enabled, label));
-    response.on_hover_text(label)
+    response.on_hover_text(tr(ui.ctx(), label))
 }
 
 fn draw_refresh(painter: &egui::Painter, center: Pos2, radius: f32, color: Color32) {
@@ -1350,13 +1368,15 @@ fn uninstall_action(ui: &mut Ui, p: Palette, enabled: bool) -> Response {
     } else {
         p.muted.gamma_multiply(0.45)
     };
-    let text = ui
-        .painter()
-        .layout_no_wrap("Uninstall".into(), FontId::proportional(13.), color);
+    let text = ui.painter().layout_no_wrap(
+        tr(ui.ctx(), "Uninstall").into(),
+        FontId::proportional(13.),
+        color,
+    );
     let width = text.size().x + 44.;
     let (row, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 34.), Sense::hover());
     let label = ui.painter().layout_no_wrap(
-        "Uninstall Anemorph".into(),
+        tr(ui.ctx(), "Uninstall Anemorph").into(),
         FontId::proportional(13.),
         p.text,
     );
@@ -1474,7 +1494,7 @@ fn container_filters(
     p: Palette,
 ) {
     if settings.home_filter_options.is_empty() {
-        ui.label(RichText::new("No filter options enabled").color(p.muted));
+        ui.label(RichText::new(tr(ui.ctx(), "No filter options enabled")).color(p.muted));
         return;
     }
     let all = !settings.home_filter_options.is_empty()
@@ -1669,13 +1689,20 @@ fn card(ui: &mut Ui, p: Palette, f: impl FnOnce(&mut Ui)) {
     ui.add_space(18.);
 }
 fn toggle(ui: &mut Ui, label: &str, value: &mut bool, p: Palette) {
-    let (rect, response) =
-        ui.allocate_exact_size(Vec2::new(ui.available_width(), 32.), Sense::click());
-    ui.painter().text(
-        rect.left_center(),
-        Align2::LEFT_CENTER,
-        label,
+    let label = tr(ui.ctx(), label);
+    let galley = ui.painter().layout(
+        label.to_string(),
         FontId::proportional(13.),
+        p.text,
+        (ui.available_width() - 56.).max(80.),
+    );
+    let (rect, response) = ui.allocate_exact_size(
+        Vec2::new(ui.available_width(), 32_f32.max(galley.size().y + 8.)),
+        Sense::click(),
+    );
+    ui.painter().galley(
+        Pos2::new(rect.left(), rect.center().y - galley.size().y / 2.),
+        galley,
         p.text,
     );
     let track = Rect::from_center_size(
@@ -1827,6 +1854,7 @@ impl FileColumns {
     }
 }
 fn paint_left(ui: &Ui, rect: Rect, text: &str, color: Color32, size: f32) {
+    let text = tr(ui.ctx(), text);
     ui.painter()
         .with_clip_rect(rect.intersect(ui.clip_rect()))
         .text(
@@ -1836,4 +1864,45 @@ fn paint_left(ui: &Ui, rect: Rect, text: &str, color: Color32, size: f32) {
             FontId::proportional(size),
             color,
         );
+}
+
+fn format_index(ui: &mut Ui, movie: bool) {
+    ui.push_id(
+        if movie {
+            "movie_index"
+        } else {
+            "episode_index"
+        },
+        |ui| {
+            ui.collapsing(tr(ui.ctx(), "Format index"), |ui| {
+                egui::Grid::new("index")
+                    .num_columns(2)
+                    .spacing([18., 8.])
+                    .show(ui, |ui| {
+                        let items: &[(&str, &str)] = if movie {
+                            &[
+                                ("[Movie Name]", "Movie title from the filename"),
+                                ("[Movie]", "Movie"),
+                                ("[Space]", "One space"),
+                            ]
+                        } else {
+                            &[
+                                ("[S] / [Season]", "S / Season"),
+                                ("[E] / [Episode]", "E / Episode"),
+                                ("[SeaNum]", "Season number"),
+                                ("[EpsNum]", "Episode number"),
+                                ("[Num]", "Two-digit numbers"),
+                                ("[FixNum]", "Numbers without leading zeros"),
+                                ("[Space]", "One space"),
+                            ]
+                        };
+                        for (index, meaning) in items {
+                            ui.monospace(*index);
+                            ui.label(tr(ui.ctx(), meaning));
+                            ui.end_row();
+                        }
+                    });
+            });
+        },
+    );
 }

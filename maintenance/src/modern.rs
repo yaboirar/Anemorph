@@ -81,6 +81,8 @@ pub fn register(root: &Path) -> Result<(), String> {
         .get()
         .map_err(|e| e.to_string())?;
     completed(result)?;
+    crate::broker_control::stop(root)?;
+    crate::menu::packaged()?;
     println!("Windows 11 context-menu integration registered.");
     Ok(())
 }

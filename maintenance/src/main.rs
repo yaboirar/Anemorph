@@ -1,8 +1,11 @@
 //! Installer-only helper. Never scans or deletes user video folders.
+#[path = "../../src/broker_control.rs"]
+mod broker_control;
 #[path = "../../src/elevation.rs"]
 mod elevation;
 mod leftovers;
 mod local_signing;
+mod menu;
 mod modern;
 mod shell_locks;
 mod trust;
@@ -78,6 +81,39 @@ fn clear_profile(path: &Path, parent: &Path) -> Result<(), String> {
 fn run() -> Result<i32, String> {
     match std::env::args().nth(1).as_deref() {
         Some("modern-status") => Ok(if modern::enabled()? { 0 } else { 10 }),
+        Some("prune-legacy") => {
+            let root = std::env::args_os()
+                .nth(2)
+                .map(PathBuf::from)
+                .ok_or("Missing installation directory.")?;
+            shell_locks::prune(&root)?;
+            Ok(0)
+        }
+        Some("stop-broker") => {
+            let root = std::env::args_os()
+                .nth(2)
+                .map(PathBuf::from)
+                .ok_or("Missing installation directory.")?;
+            broker_control::stop(&root)?;
+            Ok(0)
+        }
+        Some("unregister-menu") => {
+            menu::clear()?;
+            modern::unregister()?;
+            Ok(0)
+        }
+        Some("sync-menu") | Some("classic-menu") => {
+            let root = std::env::args_os()
+                .nth(2)
+                .map(PathBuf::from)
+                .ok_or("Missing installation directory.")?;
+            if std::env::args().nth(1).as_deref() == Some("classic-menu") {
+                menu::classic(&root)?;
+            } else {
+                menu::sync(&root)?;
+            }
+            Ok(0)
+        }
         Some("trust-ready") => Ok(if trust::available() { 0 } else { 10 }),
         Some("trust-modern") => {
             trust::change(true)?;
@@ -103,13 +139,6 @@ fn run() -> Result<i32, String> {
                 .ok_or("Missing installation directory.")?;
             shell_locks::release(&root)?;
             Ok(0)
-        }
-        Some("shell-locked") => {
-            let root = std::env::args_os()
-                .nth(2)
-                .map(PathBuf::from)
-                .ok_or("Missing installation directory.")?;
-            Ok(if shell_locks::locked(&root)? { 10 } else { 0 })
         }
         Some("check-running") => Ok(if running()? { 10 } else { 0 }),
         Some("register-modern") => {

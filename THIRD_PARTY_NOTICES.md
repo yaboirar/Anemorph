@@ -10,7 +10,7 @@ The installer uses unmodified NSIS components, including Modern UI, the System p
 
 ## Fonts
 
-Anemorph requests Arial Bold from the user's Windows installation at runtime. No Arial or LEMON MILK font file is included in the project or executable. If Arial Bold is unavailable, the interface uses egui's bundled fallback fonts. Installed fonts remain subject to their own licenses.
+Anemorph requests Arial Bold from the user's Windows installation at runtime. CJK and Arabic interfaces also load a suitable installed Windows font only when selected. No Windows or LEMON MILK font file is included in the project or executable. If Arial Bold is unavailable, the interface uses egui's bundled fallback fonts. Installed fonts remain subject to their own licenses.
 
 ## Rust dependencies
 

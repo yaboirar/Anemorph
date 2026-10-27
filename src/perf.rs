@@ -82,10 +82,46 @@ pub fn run(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
         },
         3,
     );
-    let report = serde_json::json!({"scan_2000_ms":scan_ms,"preview_10000_ms":preview_10k_ms,"preview_50000_ms":preview_50k_ms,"rename_undo_500_ms":rename_undo_500_ms});
+    // Warm the allocator before checking repeated-preview memory stability.
+    for _ in 0..5 {
+        std::hint::black_box(
+            engine::plan(&synthetic, "Benchmark", &files[..10_000], &settings).unwrap(),
+        );
+    }
+    let memory_after_warmup = private_bytes();
+    let mut memory_samples = Vec::new();
+    for _ in 0..30 {
+        std::hint::black_box(
+            engine::plan(&synthetic, "Benchmark", &files[..10_000], &settings).unwrap(),
+        );
+        memory_samples.push(private_bytes());
+    }
+    let memory_after_repeats = private_bytes();
+    let report = serde_json::json!({"private_bytes_after_warmup":memory_after_warmup,"private_bytes_after_30_repeats":memory_after_repeats,"private_bytes_samples":memory_samples,"scan_2000_ms":scan_ms,"preview_10000_ms":preview_10k_ms,"preview_50000_ms":preview_50k_ms,"rename_undo_500_ms":rename_undo_500_ms});
     std::fs::write(
         dir.join("benchmark.json"),
         serde_json::to_vec_pretty(&report)?,
     )?;
     Ok(())
+}
+
+fn private_bytes() -> usize {
+    use windows_sys::Win32::System::{
+        ProcessStatus::{GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS_EX},
+        Threading::GetCurrentProcess,
+    };
+    let mut counters: PROCESS_MEMORY_COUNTERS_EX = unsafe { std::mem::zeroed() };
+    counters.cb = std::mem::size_of::<PROCESS_MEMORY_COUNTERS_EX>() as u32;
+    // Process pseudo-handle is borrowed; the OS fills only the provided structure.
+    unsafe {
+        if GetProcessMemoryInfo(
+            GetCurrentProcess(),
+            (&mut counters as *mut PROCESS_MEMORY_COUNTERS_EX).cast(),
+            counters.cb,
+        ) == 0
+        {
+            return 0;
+        }
+    }
+    counters.PrivateUsage
 }

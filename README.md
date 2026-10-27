@@ -1,58 +1,63 @@
 # Anemorph
 
-A free, open-source batch renamer for anime, TV episodes, and movies on Windows. Turn release filenames into a consistent library, with a preview before anything changes.
+**Rename a video library without losing its episode numbers.**
 
-[Download v0.0.2](https://github.com/yaboirar/Anemorph/releases/tag/v0.0.2) · [User guide](docs/usage.md) · [Changelog](CHANGELOG.md)
+Anemorph is a free, open-source Windows app for batch-renaming anime, TV episodes, and movies. Review every proposed name before applying a batch, then undo the last batch if you need to. Video contents stay untouched.
 
-| Before | After |
+[**Download v0.0.3**](https://github.com/yaboirar/Anemorph/releases/tag/v0.0.3) · [What's changed](CHANGELOG.md#003---2026-10-28) · [User guide](docs/usage.md)
+
+![Anemorph showing original names, proposed names, and unchanged files](assets/screenshots/home.jpg)
+
+## Built around the rename itself
+
+- **Keep the right numbers.** Recognized seasons, episode numbers, and gaps stay intact. Sequential numbering for unrecognized files is optional.
+- **See the result first.** Compare original and proposed names, select a range, exclude files, and resolve name conflicts before applying anything.
+- **Recover a batch.** Undo restores previous names, with checks for files changed since renaming and recovery for interrupted batches.
+- **Start where your files are.** Right-click supported videos in File Explorer and choose **Rename with Anemorph**. Episodes and movies can share a batch.
+
+Everything runs locally. No account, uploads, or video conversion.
+
+## What's improved in 0.0.3
+
+**Explorer integration and uninstall are the focus of this release.** Duplicate menu entries are removed. The menu handler runs in Anemorph's own process, and uninstall closes that process instead of forcing Explorer to restart. The integration check no longer gets stuck on Working after reinstall.
+
+**Repair is built in.** Settings > Integration > Repair Anemorph reloads saved preferences, refreshes the current file list, and repairs menu registration. Repair and Uninstall now share one panel.
+
+**Tested beyond the dedicated GPU.** With the process limited to two logical processors, a 50,000-filename preview took about **194 ms**. The UI also completed its checks on Microsoft's CPU renderer. These are measurements from a constrained modern PC, not a promise for every older machine. Read the [performance and security report](docs/performance.md) for memory figures, test conditions, and remaining limitations.
+
+The release also adds **11 interface languages** and improves selection, button clarity, context menus, and small-window layouts. See the [full changelog](CHANGELOG.md#003---2026-10-28).
+
+## Start renaming
+
+1. Download **Anemorph-Setup-0.0.3.exe** from the [release page](https://github.com/yaboirar/Anemorph/releases/tag/v0.0.3). A portable ZIP is also available.
+2. Choose a folder, paste its path, or drop it into the app.
+3. Check the series name and preview, then include the files you want.
+4. Click **Rename**. Use **Undo last batch** to restore the previous names.
+
+| Original | Proposed |
 | :--- | :--- |
 | `[Group] Anemorph - 09 [1080p].mkv` | `Anemorph S01E09.mkv` |
 | `[Group] Anemorph Movie [1080p].mp4` | `Anemorph Movie.mp4` |
 
-## Built for your library
+The installer lets you choose its destination and includes Explorer integration. No .NET runtime is needed. The portable app works without installation; Explorer integration requires setup.
 
-- **Keep the right episode numbers.** Detect seasons and episodes without closing gaps or renumbering recognized files.
-- **Define your own filenames.** Customize episode and movie formats together, with readable tokens and live examples.
-- **Handle episodes and movies in one batch.** Detect movie markers automatically, or classify files from the right-click menu.
-- **Review before renaming.** Compare names side by side, resize columns, select ranges, and see conflicts or unchanged files.
-- **Start from File Explorer.** Send selected videos straight to Anemorph through **Rename with Anemorph**.
-- **Undo the last batch.** Restore previous names, with checks for files that changed after renaming.
+## In File Explorer
 
-Anemorph works locally without an account. It changes filenames only; it does not convert or modify video contents.
+![A single Rename with Anemorph command in the Windows 11 context menu](assets/screenshots/explorer-menu.png)
 
-## Get started
+Choose the classic menu or Windows 11's first right-click menu under **Settings > Integration**. The first-menu option may require Windows administrator approval to trust the included development signing certificate. Declining keeps the classic menu available. The installer is unsigned.
 
-1. Download **Anemorph-Setup-0.0.2.exe** from the [release page](https://github.com/yaboirar/Anemorph/releases/tag/v0.0.2), or choose the portable ZIP.
-2. Choose a folder, paste its path, or drop it into Anemorph.
-3. Check the series name and proposed filenames, then select your files.
-4. Click **Rename**.
+## Your library, your choices
 
-The installer lets you choose a destination and includes repair, uninstall, and Explorer integration. No .NET runtime is needed. The portable build works without installation; Explorer integration requires setup.
+Choose your episode/movie naming styles, classify a file from its right-click menu, and filter any combination of supported containers. No active filter shows all supported videos. Configuration controls which choices appear in Home's filter menu.
 
-On Windows 11, the Explorer command is available under **Show more options**. To enable it on the first menu, open **Settings > Integration**. Windows may request administrator approval to trust the included development signing certificate. Cancelling keeps the classic menu available. The installer itself is unsigned.
+Supported containers: **MKV, MP4, MOV, AVI, WebM, M4V**, WMV, FLV, MPG, MPEG, MPE, M2V, TS, MTS, M2TS, VOB, OGV, OGM, 3GP, 3G2, ASF, DIVX, F4V, MXF, RM, and RMVB.
 
-## Choose your format
+Languages: English (US/UK), Russian, Spanish, Portuguese, Turkish, German, Japanese, Korean, Simplified Chinese, and Modern Standard Arabic.
 
-Open **Configuration > Filename format**. Episode and movie formats share one panel and an **Apply** action.
-
-| Format | Preview |
-| :--- | :--- |
-| `[Num][S][SeaNum][E][EpsNum]` | `Anemorph S01E09.mkv` |
-| `[FixNum][S][SeaNum][Space][E][EpsNum]` | `Anemorph S1 E9.mkv` |
-| `[Movie Name] Movie` | `Anemorph Movie.mkv` |
-
-For episodes, Anemorph adds the series name and preserves the original extension. Movies use their cleaned filename title. See the [token reference and naming guide](docs/usage.md#your-own-filename-format) for the full options.
-
-## Supported videos
-
-MKV, MP4, MOV, AVI, WebM, M4V, WMV, FLV, MPG, MPEG, MPE, M2V, TS, MTS, M2TS, VOB, OGV, OGM, 3GP, 3G2, ASF, DIVX, F4V, MXF, RM, and RMVB.
-
-Select any combination in Home's filter menu. No active filter shows every supported container. Configuration controls which choices appear in that menu.
-
-## More
-
-- [Using Anemorph](docs/usage.md): selection, media markers, filters, undo, and installation.
+- [User guide](docs/usage.md): naming, selection, filters, undo, and installation.
 - [Building from source](docs/building.md): Rust workspace, installer, and Windows integration.
+- [Performance and security](docs/performance.md): measured results and their limits.
 - [Contributing](CONTRIBUTING.md): bug reports, ideas, and code changes.
 
 Created by [@yaboirar](https://github.com/yaboirar). Written in Rust.

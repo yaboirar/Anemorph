@@ -21,6 +21,7 @@ VIProductVersion "${APP_VERSION}.0"
 VIAddVersionKey "ProductName" "Anemorph"
 VIAddVersionKey "FileDescription" "Anemorph installer"
 VIAddVersionKey "FileVersion" "${APP_VERSION}"
+VIAddVersionKey "ProductVersion" "${APP_VERSION}"
 VIAddVersionKey "LegalCopyright" "Anemorph contributors"
 !define MUI_ICON "..\assets\icon.ico"
 !define MUI_UNICON "..\assets\icon.ico"
@@ -94,6 +95,7 @@ Section "Anemorph" Core
   SetOutPath "$INSTDIR"
   File /oname=Anemorph.exe "${APP_EXE}"
   File /oname=anemorph-maintenance.exe "${MAINTENANCE_EXE}"
+  File /oname=anemorph-broker.exe "${BROKER_EXE}"
   File "..\LICENSE"
   File "..\README.md"
   File "..\CHANGELOG.md"
@@ -103,12 +105,17 @@ Section "Anemorph" Core
   SetOutPath "$INSTDIR\docs"
   File "..\docs\usage.md"
   File "..\docs\building.md"
+  File "..\docs\performance.md"
+  SetOutPath "$INSTDIR\assets\screenshots"
+  File "..\assets\screenshots\home.jpg"
+  File "..\assets\screenshots\explorer-menu.png"
   SetOutPath "$INSTDIR"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   CreateDirectory "$SMPROGRAMS\Anemorph"
   CreateShortcut "$SMPROGRAMS\Anemorph\Anemorph.lnk" "$INSTDIR\Anemorph.exe"
   CreateShortcut "$SMPROGRAMS\Anemorph\Uninstall Anemorph.lnk" "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\Anemorph" "InstallDir" "$INSTDIR"
+  DeleteRegValue HKCU "Software\Anemorph" "ShellDll"
   WriteRegStr HKCU "Software\Anemorph\InstallLocations" "$INSTDIR" ""
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Anemorph" "DisplayName" "Anemorph"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Anemorph" "DisplayVersion" "${APP_VERSION}"
@@ -133,9 +140,7 @@ SectionEnd
 Section -ExplorerIntegration
   SectionIn RO
   SetOutPath "$INSTDIR"
-  ; Content-addressed DLL names allow upgrades while Explorer still holds an older DLL.
-  IfFileExists "$INSTDIR\${SHELL_NAME}" +2
-    File /oname=${SHELL_NAME} "${SHELL_DLL}"
+  ; Both menu modes activate the separate broker; no DLL is loaded into Explorer.
 !ifdef MODERN_PACKAGE
   SetOutPath "$INSTDIR\Anemorph.Integration"
   File /oname=Anemorph.identity.msix "${MODERN_PACKAGE}"
@@ -151,10 +156,14 @@ Section -ExplorerIntegration
   ${EndIf}
   ${EndIf}
 !endif
-  WriteRegStr HKCU "Software\Classes\CLSID\${APP_CLSID}" "" "Anemorph Explorer command"
-  WriteRegStr HKCU "Software\Classes\CLSID\${APP_CLSID}\InprocServer32" "" "$INSTDIR\${SHELL_NAME}"
-  WriteRegStr HKCU "Software\Classes\CLSID\${APP_CLSID}\InprocServer32" "ThreadingModel" "Apartment"
-  !include "${REGISTER_INCLUDE}"
+  nsExec::ExecToStack '$\"$PLUGINSDIR\anemorph-maintenance.exe$\" sync-menu $\"$INSTDIR$\"'
+  Pop $0
+  Pop $1
+  ${If} $0 != 0
+    MessageBox MB_OK|MB_ICONEXCLAMATION "Explorer integration could not be configured.$\r$\n$1" /SD IDOK
+    SetErrorLevel 1
+    Abort
+  ${EndIf}
   System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
 SectionEnd
 

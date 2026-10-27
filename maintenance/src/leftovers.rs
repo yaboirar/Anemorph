@@ -79,6 +79,14 @@ fn recorded_locations() -> Result<Vec<PathBuf>, String> {
     Err("Installation inventory exceeds the supported limit.".into())
 }
 fn remove_file(path: &Path, count: &mut usize) -> Result<(), String> {
+    if path.file_name().is_some_and(|n| {
+        let n = n.to_string_lossy().to_ascii_lowercase();
+        n == "anemorph-broker.exe" || n.starts_with("anemorph-shell-") && n.ends_with(".dll")
+    }) {
+        crate::shell_locks::unlink_image(path)?;
+        *count += 1;
+        return Ok(());
+    }
     match fs::remove_file(path) {
         Ok(()) => {
             *count += 1;
@@ -101,9 +109,26 @@ fn program_leftovers(root: &Path, count: &mut usize) -> Result<(), String> {
         ));
     }
     let integration = root.join("Anemorph.Integration");
+    let assets = root.join("assets");
+    let screenshots = assets.join("screenshots");
+    if fs::symlink_metadata(&assets).is_ok_and(|m| m.is_dir() && !m.file_type().is_symlink())
+        && fs::symlink_metadata(&screenshots)
+            .is_ok_and(|m| m.is_dir() && !m.file_type().is_symlink())
+    {
+        for name in ["home.jpg", "explorer-menu.png"] {
+            remove_file(&screenshots.join(name), count)?;
+        }
+        for folder in [&screenshots, &assets] {
+            match fs::remove_dir(folder) {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::DirectoryNotEmpty => {}
+                Err(e) => return Err(e.to_string()),
+            }
+        }
+    }
     let docs = root.join("docs");
     if fs::symlink_metadata(&docs).is_ok_and(|m| !m.file_type().is_symlink() && m.is_dir()) {
-        for name in ["usage.md", "building.md"] {
+        for name in ["usage.md", "building.md", "performance.md"] {
             remove_file(&docs.join(name), count)?;
         }
         match fs::remove_dir(&docs) {
@@ -128,6 +153,7 @@ fn program_leftovers(root: &Path, count: &mut usize) -> Result<(), String> {
         let owned = [
             "anemorph.exe",
             "anemorph-maintenance.exe",
+            "anemorph-broker.exe",
             "uninstall.exe",
             "license",
             "readme.md",
@@ -270,11 +296,25 @@ mod tests {
             std::env::temp_dir().join(format!("anemorph-leftover-scan-{}", std::process::id()));
         fs::create_dir_all(&root).unwrap();
         fs::write(root.join("Anemorph.exe"), b"app").unwrap();
-        fs::write(root.join("anemorph-shell-previous.dll"), b"old component").unwrap();
+        fs::write(
+            root.join("anemorph-shell-012345abcdef.dll"),
+            b"old component",
+        )
+        .unwrap();
         fs::write(root.join("My video.mkv"), b"video").unwrap();
+        let screenshots = root.join("assets/screenshots");
+        fs::create_dir_all(&screenshots).unwrap();
+        for name in ["home.jpg", "explorer-menu.png", "Keep.png"] {
+            fs::write(screenshots.join(name), b"fixture").unwrap();
+        }
+        fs::create_dir_all(root.join("docs")).unwrap();
+        fs::write(root.join("docs/performance.md"), b"report").unwrap();
+        fs::write(root.join("docs/Keep.md"), b"unrelated").unwrap();
         let mut count = 0;
         program_leftovers(&root, &mut count).unwrap();
-        assert_eq!(count, 2);
+        assert_eq!(count, 5);
+        assert!(root.join("docs/Keep.md").is_file());
+        assert!(screenshots.join("Keep.png").is_file());
         assert!(root.join("My video.mkv").is_file());
         fs::remove_dir_all(root).unwrap();
     }

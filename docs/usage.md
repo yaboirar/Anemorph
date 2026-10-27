@@ -2,7 +2,7 @@
 
 ## Getting started
 
-1. Run `Anemorph-Setup-0.0.2.exe` to install, or open the portable `Anemorph.exe`. Neither needs a .NET runtime.
+1. Run `Anemorph-Setup-0.0.3.exe` to install, or open the portable `Anemorph.exe`. Neither needs a .NET runtime.
 2. Paste a folder path, click **Browse**, or drop a folder into the window.
 3. Check the suggested series name. You can edit it or use its refresh icon to restore the original detected name, including after you edit or clear it.
 4. Review the **New filename** column and choose the files you want to rename.
@@ -30,7 +30,7 @@ Open **Configuration → Filename format → Episodes**, edit the formats, check
 | `[E]`, `[Episode]` | Literal `E` or `Episode` |
 | `[SeaNum]` | Season number |
 | `[EpsNum]` | Episode number |
-| `[Num]` | Use at least two digits for following number tokens: `01`, `09` |
+| `[Num]` | Use at least two digits for following number indexes: `01`, `09` |
 | `[FixNum]` | Use numbers without leading zeros: `1`, `9` |
 | `[Space]` | Insert one space |
 
@@ -48,7 +48,7 @@ Files whose names contain the standalone word `Movie` (case-insensitive) are cat
 
 The default is `[Movie Name] Movie`: `[Group] Anemorph Movie [1080p].MOV` becomes `Anemorph Movie.MOV`. The title is taken from the filename, with release-group tags, common technical tags, and the movie marker removed. Review the preview when a real title contains the word Movie. Only the original file extension is kept; video data is not inspected or converted.
 
-| Movie token | Meaning |
+| Movie index | Meaning |
 | --- | --- |
 | `[Movie Name]` | Cleaned movie title from the filename |
 | `[Movie]` | Literal `Movie` |
@@ -86,8 +86,20 @@ To put Anemorph on Windows 11's first right-click menu, open **Settings > Integr
 
 The first Windows 11 menu uses the optional signed identity package described below. If the package is missing or Windows cannot trust or register it, installation still completes with the classic menu. Certificate trust is not required to use Anemorph. Repair and uninstall unregister Anemorph's identity before replacing or removing its files.
 
-Opening a selection loads only those files. Refresh, container filtering, rename, and undo retain that scope. Browse or enter a folder to return to folder mode. The integration does not run a background service and never renames anything before you click **Rename**.
+Opening a selection loads only those files. Refresh, container filtering, rename, and undo retain that scope. Browse or enter a folder to return to folder mode. Modern integration launches its host on demand. Classic mode keeps a small menu host in your user session, sleeping while idle; it starts at sign-in and closes during uninstall. Neither mode loads Anemorph code into Explorer or renames anything before you click **Rename**.
 
 This local installer is unsigned. Windows may display an unknown-publisher or SmartScreen prompt. It does not install a signing certificate or change Windows security settings.
 
-If Explorer holds Anemorph's menu DLL during uninstall, setup offers to restart Explorer and release it before removing app files or settings. The taskbar briefly disappears and open folder windows may close. Cancelling stops removal. Silent uninstall reports a lock instead of restarting Explorer without permission.
+Explorer integration runs in Anemorph's own process. Uninstall closes that host and removes its registration without restarting Explorer. A legacy DLL left by an older build is reported if Windows still has it loaded; removal stops safely rather than forcing Explorer to close.
+
+## Recovery
+
+Settings > Integration > Repair Anemorph reloads saved preferences, clears temporary UI state, rescans the current folder, and repairs Explorer menu registration. It preserves rename history, file markers, and your videos. Unapplied format and color edits are replaced by their saved values. Missing application binaries still require running setup's Repair option.
+
+Turning off Animations keeps navigation tabs as icons without expanding labels. Click Anemorph in the bottom-left corner to open About.
+
+## Interface language
+
+Choose Settings > Language. Available languages are English (US), English (UK), Russian, Spanish, Portuguese, Turkish, German, Japanese, Korean, Simplified Chinese, and Modern Standard Arabic. The choice is saved immediately. File paths, filenames, and format indexes remain literal. Windows dialogs and detailed operating-system errors use Windows' own language.
+
+Appearance contains the highlight color picker. Both Repair and Uninstall are in one panel under Integration. On Home, file and selection counts sit immediately before the refresh and filter icons. Episode and movie formats each have their own Format index; indexes from the other format are rejected.

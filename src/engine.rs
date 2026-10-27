@@ -12,6 +12,7 @@ use std::{
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(default, rename_all = "PascalCase")]
 pub struct Settings {
+    pub language: String,
     pub dark_mode: bool,
     pub compact: bool,
     pub auto_detect: bool,
@@ -40,6 +41,7 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            language: "en-US".into(),
             dark_mode: true,
             compact: false,
             auto_detect: true,
@@ -142,6 +144,12 @@ impl Settings {
             s.filter_extensions.push(legacy);
         }
         s.filter_extension = None;
+        if !crate::i18n::LANGUAGES
+            .iter()
+            .any(|(code, _)| *code == s.language)
+        {
+            s.language = "en-US".into();
+        }
         for extension in &mut s.filter_extensions {
             extension.make_ascii_lowercase();
         }

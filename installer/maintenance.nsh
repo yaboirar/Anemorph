@@ -122,7 +122,7 @@ Function ${PREFIX}CleanIntegrationTrust
   ${EndIf}
 FunctionEnd
 Function ${PREFIX}UnregisterModern
-  nsExec::ExecToStack '$\"$PLUGINSDIR\anemorph-maintenance.exe$\" unregister-modern'
+  nsExec::ExecToStack '$\"$PLUGINSDIR\anemorph-maintenance.exe$\" unregister-menu'
   Pop $0
   Pop $1
   ${If} $0 != 0
@@ -176,32 +176,31 @@ Function ${PREFIX}RemoveProgramFiles
     Abort
   ${EndIf}
   retry_files:
+  nsExec::ExecToStack '$\"$PLUGINSDIR\anemorph-maintenance.exe$\" stop-broker $\"$2$\"'
+  Pop $0
+  Pop $1
+  ${If} $0 != 0
+    MessageBox MB_OK|MB_ICONEXCLAMATION "$1" /SD IDOK
+    Goto files_abort
+  ${EndIf}
   ${If} $KeepShellForRepair != 1
-    nsExec::ExecToStack '$\"$PLUGINSDIR\anemorph-maintenance.exe$\" shell-locked $\"$2$\"'
+    nsExec::ExecToStack '$\"$PLUGINSDIR\anemorph-maintenance.exe$\" release-shell $\"$2$\"'
     Pop $0
     Pop $1
-    ${If} $0 == 10
+    ${If} $0 != 0
       IfSilent files_abort
-      MessageBox MB_YESNO|MB_ICONQUESTION "File Explorer is using Anemorph's menu.$\r$\n$\r$\nRestart Explorer now to finish cleanup? The taskbar will briefly disappear and open folder windows may close. Your files are kept." IDYES restart_shell
-      Goto files_abort
-      restart_shell:
-      !include "${UNREGISTER_INCLUDE}"
-      DeleteRegKey HKCU "Software\Classes\CLSID\{B8A9BDB0-03E4-4F1A-BDEA-28654A8F7DB4}"
-      System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
-      nsExec::ExecToStack '$\"$PLUGINSDIR\anemorph-maintenance.exe$\" release-shell $\"$2$\"'
-      Pop $0
-      Pop $1
-      ${If} $0 != 0
-        MessageBox MB_OK|MB_ICONEXCLAMATION "Windows could not finish releasing Anemorph's menu.$\r$\n$1" /SD IDOK
-        Goto files_abort
-      ${EndIf}
-    ${ElseIf} $0 != 0
-      MessageBox MB_OK|MB_ICONEXCLAMATION "Cannot check which application is using Anemorph.$\r$\n$1" /SD IDOK
+      MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "Menu files could not be removed. No Windows applications were stopped.$\r$\n$1" IDRETRY retry_files
       Goto files_abort
     ${EndIf}
+  ${Else}
+    nsExec::ExecToStack '$\"$PLUGINSDIR\anemorph-maintenance.exe$\" prune-legacy $\"$2$\"'
+    Pop $0
+    Pop $1
+    DetailPrint "$1"
   ${EndIf}
   Delete "$2\Anemorph.exe"
   Delete "$2\anemorph-maintenance.exe"
+  Delete "$2\anemorph-broker.exe"
   ${If} $KeepShellForRepair != 1
     Delete "$2\anemorph-shell-*.dll"
     ${If} ${FileExists} "$2\anemorph-shell-*.dll"
@@ -214,22 +213,31 @@ Function ${PREFIX}RemoveProgramFiles
   Delete "$2\THIRD_PARTY_NOTICES.md"
   Delete "$2\DEPENDENCY_LICENSES.md"
   Delete "$2\NSIS-LICENSE.txt"
+  Delete "$2\assets\screenshots\home.jpg"
+  Delete "$2\assets\screenshots\explorer-menu.png"
+  RMDir "$2\assets\screenshots"
+  RMDir "$2\assets"
   Delete "$2\docs\usage.md"
   Delete "$2\docs\building.md"
+  Delete "$2\docs\performance.md"
   RMDir "$2\docs"
   Delete "$2\Anemorph.Integration\Anemorph.identity.msix"
   Delete "$2\Anemorph.Integration\icon.png"
   RMDir "$2\Anemorph.Integration"
   ${If} ${FileExists} "$2\Anemorph.exe"
   ${OrIf} ${FileExists} "$2\anemorph-maintenance.exe"
+  ${OrIf} ${FileExists} "$2\anemorph-broker.exe"
   ${OrIf} ${FileExists} "$2\LICENSE"
   ${OrIf} ${FileExists} "$2\README.md"
   ${OrIf} ${FileExists} "$2\CHANGELOG.md"
   ${OrIf} ${FileExists} "$2\THIRD_PARTY_NOTICES.md"
   ${OrIf} ${FileExists} "$2\DEPENDENCY_LICENSES.md"
   ${OrIf} ${FileExists} "$2\NSIS-LICENSE.txt"
+  ${OrIf} ${FileExists} "$2\assets\screenshots\home.jpg"
+  ${OrIf} ${FileExists} "$2\assets\screenshots\explorer-menu.png"
   ${OrIf} ${FileExists} "$2\docs\usage.md"
   ${OrIf} ${FileExists} "$2\docs\building.md"
+  ${OrIf} ${FileExists} "$2\docs\performance.md"
   ${OrIf} ${FileExists} "$2\Anemorph.Integration\Anemorph.identity.msix"
   ${OrIf} ${FileExists} "$2\Anemorph.Integration\icon.png"
     files_locked:

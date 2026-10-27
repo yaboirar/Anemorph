@@ -8,7 +8,7 @@ From the project folder:
 cargo build --release --locked --workspace
 ```
 
-Your executable will be at `target/release/anemorph.exe`. The workspace also builds the Rust Explorer handler, `anemorph_shell.dll`, and the installer-only `anemorph-maintenance.exe` cleanup helper.
+Your executable will be at `target/release/anemorph.exe`. The workspace also builds the out-of-process Explorer host, `anemorph-broker.exe`, the shared shell library, and the installer-only `anemorph-maintenance.exe` cleanup helper.
 
 To build the installer, install [NSIS](https://nsis.sourceforge.io/Download), put `makensis.exe` on PATH, and run `installer/build.ps1` from PowerShell. The installer appears in `dist/`. The script takes its version from `Cargo.toml` and its registered extensions from `src/containers.rs`. You can supply `-TargetDir` and `-OutputDir` to use other build/output folders. Building the installer does not install the app.
 
@@ -21,7 +21,7 @@ For a development build with the in-app trust action, export only the public cer
 .\installer\build.ps1 -SkipBuild -TargetDir target -ModernPackage target\modern-integration\Anemorph.identity.msix
 ```
 
-The identity package references the externally installed app and DLL, so installation-folder selection still works. The installer validates that its handler and version match the app, registers it for the current user on Windows 11, and removes it on uninstall. It does not add a trusted certificate or change Windows security policy. Windows must already trust the signing certificate. Production releases need a trusted signing certificate; a self-signed development certificate is useful only on machines whose owner explicitly trusts it. Never commit private signing keys or export them into release packages. Running `build-modern.ps1` without a thumbprint creates an unsigned package for inspection, which the installer refuses to bundle as a signed release.
+The identity package references the externally installed app and menu host, so installation-folder selection still works. The installer validates that its handler and version match the app, registers it for the current user on Windows 11, and removes it on uninstall. It does not add a trusted certificate or change Windows security policy. Windows must already trust the signing certificate. Production releases need a trusted signing certificate; a self-signed development certificate is useful only on machines whose owner explicitly trusts it. Never commit private signing keys or export them into release packages. Running `build-modern.ps1` without a thumbprint creates an unsigned package for inspection, which the installer refuses to bundle as a signed release.
 
 To open an explicit selection from a terminal:
 
@@ -43,3 +43,11 @@ target\release\anemorph.exe --benchmark C:\Temp\Anemorph-benchmark
 ```
 
 The table renders visible rows only. File scanning, renaming, and large previews run on worker threads; repeated preview edits are coalesced. The interface sleeps when idle and keeps animations short.
+
+## Constrained performance checks
+
+Use `Anemorph.exe --benchmark <isolated-output-directory>` for scans, preview throughput, rename/undo, and thirty repeated-preview private-memory samples. Only disposable fixture files in that output directory are modified.
+
+Use `Anemorph.exe --smoke-test <isolated-output-directory> --software-rendering` to exercise the UI on a CPU graphics adapter. `graphics.json` records the actual selected adapter. Limit only the test process to two logical processors for constrained runs. Affinity limits concurrency; it does not emulate an older CPU, slower storage, or lower memory bandwidth.
+
+Smoke settings are isolated under the test output directory. A `Language` setting can be supplied there to verify script rendering without changing the user's preferences. Reports are measurements of the tested host, not a universal minimum-spec guarantee.

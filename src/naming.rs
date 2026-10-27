@@ -28,7 +28,7 @@ impl MovieFormat {
         let mut has_name = false;
         while !remaining.is_empty() {
             if let Some(tail) = remaining.strip_prefix('[') {
-                let end = tail.find(']').ok_or("Close each token with ].")?;
+                let end = tail.find(']').ok_or("Close each index with ].")?;
                 match &tail[..end] {
                     "Movie Name" => {
                         parts.push(MoviePart::Name);
@@ -36,14 +36,14 @@ impl MovieFormat {
                     }
                     "Movie" => parts.push(MoviePart::Text("Movie".into())),
                     "Space" => parts.push(MoviePart::Text(" ".into())),
-                    token => return Err(format!("Unknown movie token [{token}].")),
+                    token => return Err(format!("Unknown movie index [{token}].")),
                 }
                 remaining = &tail[end + 1..];
             } else {
                 let end = remaining.find('[').unwrap_or(remaining.len());
                 let text = &remaining[..end];
                 if text.contains(']') {
-                    return Err("Open each token with [.".into());
+                    return Err("Open each index with [.".into());
                 }
                 parts.push(MoviePart::Text(text.into()));
                 remaining = &remaining[end..];
@@ -137,7 +137,7 @@ impl Format {
         let mut padded = None;
         while !remaining.is_empty() {
             if let Some(tail) = remaining.strip_prefix('[') {
-                let end = tail.find(']').ok_or("Close each token with ].")?;
+                let end = tail.find(']').ok_or("Close each index with ].")?;
                 let token = &tail[..end];
                 match token {
                     "S" | "Season" | "E" | "Episode" => parts.push(Part::Text(token.into())),
@@ -146,21 +146,21 @@ impl Format {
                     "FixNum" => padded = Some(false),
                     "SeaNum" | "EpsNum" => {
                         let padded =
-                            padded.ok_or("Choose [Num] or [FixNum] before a number token.")?;
+                            padded.ok_or("Choose [Num] or [FixNum] before a number index.")?;
                         parts.push(if token == "SeaNum" {
                             Part::Season("", padded)
                         } else {
                             Part::Episode("", padded)
                         });
                     }
-                    _ => return Err(format!("Unknown token [{token}].")),
+                    _ => return Err(format!("Unknown episode index [{token}].")),
                 }
                 remaining = &tail[end + 1..];
             } else {
                 let end = remaining.find('[').unwrap_or(remaining.len());
                 let text = &remaining[..end];
                 if text.contains(']') {
-                    return Err("Open each token with [.".into());
+                    return Err("Open each index with [.".into());
                 }
                 parts.push(Part::Text(text.into()));
                 remaining = &remaining[end..];
@@ -332,6 +332,26 @@ mod tests {
 #[cfg(test)]
 mod movie_tests {
     use super::*;
+    #[test]
+    fn episode_and_movie_indexes_are_strictly_separate() {
+        for index in ["[Movie Name]", "[Movie]"] {
+            assert!(Format::parse(&format!("{DEFAULT_FORMAT}{index}")).is_err());
+        }
+        for index in [
+            "[S]",
+            "[E]",
+            "[Season]",
+            "[Episode]",
+            "[Num]",
+            "[FixNum]",
+            "[SeaNum]",
+            "[EpsNum]",
+        ] {
+            assert!(MovieFormat::parse(&format!("[Movie Name]{index}")).is_err());
+        }
+        assert!(Format::parse("[Num][EpsNum][Space]").is_ok());
+        assert!(MovieFormat::parse("[Movie Name][Space][Movie]").is_ok());
+    }
     #[test]
     fn movie_tokens_and_windows_filename_validation() {
         assert_eq!(
