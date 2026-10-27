@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+ xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+ xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+ xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+ xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+ xmlns:desktop4="http://schemas.microsoft.com/appx/manifest/desktop/windows10/4"
+ xmlns:desktop5="http://schemas.microsoft.com/appx/manifest/desktop/windows10/5"
+ IgnorableNamespaces="uap uap10 rescap com desktop4 desktop5">
+ <Identity Name="yaboirar.Anemorph" Publisher="@PUBLISHER@" Version="@VERSION@" ProcessorArchitecture="x64" />
+ <Properties>
+  <DisplayName>Anemorph</DisplayName>
+  <PublisherDisplayName>yaboirar</PublisherDisplayName>
+  <Logo>Anemorph.Integration\icon.png</Logo>
+  <uap10:AllowExternalContent>true</uap10:AllowExternalContent>
+ </Properties>
+ <Resources><Resource Language="en-us" /></Resources>
+ <Dependencies><TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.22000.0" MaxVersionTested="10.0.26300.0" /></Dependencies>
+ <Applications>
+  <Application Id="Anemorph" Executable="Anemorph.exe" uap10:RuntimeBehavior="win32App" uap10:TrustLevel="mediumIL">
+   <uap:VisualElements AppListEntry="none" DisplayName="Anemorph" Description="Anemorph video filename renamer" BackgroundColor="transparent"
+    Square150x150Logo="Anemorph.Integration\icon.png" Square44x44Logo="Anemorph.Integration\icon.png" />
+   <Extensions>
+    <com:Extension Category="windows.comServer"><com:ComServer><com:SurrogateServer DisplayName="Anemorph">
+     <com:Class Id="B8A9BDB0-03E4-4F1A-BDEA-28654A8F7DB4" Path="@SHELL_DLL@" ThreadingModel="STA" />
+    </com:SurrogateServer></com:ComServer></com:Extension>
+    <desktop4:Extension Category="windows.fileExplorerContextMenus"><desktop4:FileExplorerContextMenus>
+     <desktop5:ItemType Type="*"><desktop5:Verb Id="RenameWithAnemorph" Clsid="B8A9BDB0-03E4-4F1A-BDEA-28654A8F7DB4" /></desktop5:ItemType>
+    </desktop4:FileExplorerContextMenus></desktop4:Extension>
+   </Extensions>
+  </Application>
+ </Applications>
+ <Capabilities><rescap:Capability Name="runFullTrust" /><rescap:Capability Name="unvirtualizedResources" /></Capabilities>
+</Package>

@@ -282,6 +282,310 @@ mod title_bar_tests {
         assert!(!app.about_open);
     }
     #[test]
+    fn right_click_marks_a_skipped_file_as_movie_without_renaming_it() {
+        let ctx = Context::default();
+        let cc = eframe::CreationContext::_new_kittest(ctx.clone());
+        let root =
+            std::env::temp_dir().join(format!("anemorph-context-test-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let file = root.join("Unmarked film.mp4");
+        std::fs::write(&file, b"fixture").unwrap();
+        let mut app = App::new(&cc, Some(root.join("app")));
+        app.data = root.join("data");
+        app.root = Some(root.clone());
+        app.series = "Show".into();
+        app.media_markers = std::sync::Arc::new(engine::MediaMarkers::new());
+        app.files = std::sync::Arc::new(vec![file.clone()]);
+        app.rebuild();
+        assert!(!app.rows[0].ready);
+        fn render(ctx: &Context, app: &mut App, events: Vec<egui::Event>) -> egui::FullOutput {
+            ctx.run(
+                egui::RawInput {
+                    screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(900., 500.))),
+                    events,
+                    ..Default::default()
+                },
+                |ctx| {
+                    egui::CentralPanel::default().show(ctx, |ui| app.table(ui, app.palette()));
+                },
+            )
+        }
+        let _ = render(&ctx, &mut app, vec![]);
+        let row = ctx
+            .read_response(Id::new(("file_row", &file)))
+            .unwrap()
+            .rect
+            .center();
+        for pressed in [true, false] {
+            let _ = render(
+                &ctx,
+                &mut app,
+                vec![
+                    egui::Event::PointerMoved(row),
+                    egui::Event::PointerButton {
+                        pos: row,
+                        button: egui::PointerButton::Secondary,
+                        pressed,
+                        modifiers: Modifiers::NONE,
+                    },
+                ],
+            );
+        }
+        let menu = render(&ctx, &mut app, vec![]);
+        let button = menu
+            .shapes
+            .iter()
+            .find_map(|s| match &s.shape {
+                egui::Shape::Text(t) if t.galley.job.text == "Mark as movie" => {
+                    Some(t.pos + Vec2::new(10., t.galley.size().y / 2.))
+                }
+                _ => None,
+            })
+            .expect("right-click movie action");
+        for pressed in [true, false] {
+            let _ = render(
+                &ctx,
+                &mut app,
+                vec![
+                    egui::Event::PointerMoved(button),
+                    egui::Event::PointerButton {
+                        pos: button,
+                        button: egui::PointerButton::Primary,
+                        pressed,
+                        modifiers: Modifiers::NONE,
+                    },
+                ],
+            );
+        }
+        assert_eq!(app.rows[0].kind, engine::MediaKind::Movie);
+        assert_eq!(app.rows[0].output, "Unmarked film Movie.mp4");
+        assert!(file.exists());
+        assert!(!root.join("Unmarked film Movie.mp4").exists());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn header_dividers_resize_columns_and_status_text_aligns() {
+        let ctx = Context::default();
+        let cc = eframe::CreationContext::_new_kittest(ctx.clone());
+        let root =
+            std::env::temp_dir().join(format!("anemorph-column-test-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let file = root.join("Show S01E19.mp4");
+        std::fs::write(&file, b"fixture").unwrap();
+        let mut app = App::new(&cc, Some(root.join("app")));
+        app.data = root.join("data");
+        app.root = Some(root.clone());
+        app.series = "Show".into();
+        app.files = std::sync::Arc::new(vec![file]);
+        app.rebuild();
+        fn render(
+            ctx: &Context,
+            app: &mut App,
+            width: f32,
+            events: Vec<egui::Event>,
+        ) -> egui::FullOutput {
+            ctx.run(
+                egui::RawInput {
+                    screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(width, 500.))),
+                    events,
+                    ..Default::default()
+                },
+                |ctx| {
+                    egui::CentralPanel::default().show(ctx, |ui| app.table(ui, app.palette()));
+                },
+            )
+        }
+        fn drag(ctx: &Context, app: &mut App, divider: usize, delta: f32) {
+            let start = ctx
+                .read_response(Id::new(("column_divider", divider)))
+                .unwrap()
+                .rect
+                .center();
+            let end = start + Vec2::new(delta, 0.);
+            let _ = render(
+                ctx,
+                app,
+                1000.,
+                vec![
+                    egui::Event::PointerMoved(start),
+                    egui::Event::PointerButton {
+                        pos: start,
+                        button: egui::PointerButton::Primary,
+                        pressed: true,
+                        modifiers: Modifiers::NONE,
+                    },
+                ],
+            );
+            let _ = render(ctx, app, 1000., vec![egui::Event::PointerMoved(end)]);
+            let _ = render(
+                ctx,
+                app,
+                1000.,
+                vec![egui::Event::PointerButton {
+                    pos: end,
+                    button: egui::PointerButton::Primary,
+                    pressed: false,
+                    modifiers: Modifiers::NONE,
+                }],
+            );
+        }
+        let _ = render(&ctx, &mut app, 1000., vec![]);
+        let width = 984.;
+        let before = FileColumns::new(
+            width,
+            app.settings.table_name_ratio,
+            app.settings.table_status_width,
+        );
+        drag(&ctx, &mut app, 0, 80.);
+        let after = FileColumns::new(
+            width,
+            app.settings.table_name_ratio,
+            app.settings.table_status_width,
+        );
+        assert!((after.widths[0] - before.widths[0] - 80.).abs() < 0.5);
+        assert!((after.widths[2] - before.widths[2]).abs() < 0.5);
+        drag(&ctx, &mut app, 1, -40.);
+        let resized = FileColumns::new(
+            width,
+            app.settings.table_name_ratio,
+            app.settings.table_status_width,
+        );
+        assert!((resized.widths[2] - after.widths[2] - 40.).abs() < 0.5);
+        assert!((resized.widths[0] - after.widths[0]).abs() < 0.5);
+        let output = render(&ctx, &mut app, 1000., vec![]);
+        let position = |text: &str| {
+            output
+                .shapes
+                .iter()
+                .find_map(|shape| match &shape.shape {
+                    egui::Shape::Text(t) if t.galley.job.text == text => Some(t.pos.x),
+                    _ => None,
+                })
+                .unwrap()
+        };
+        assert!((position("Status") - position("No change")).abs() < 0.1);
+        assert!(!app.rows[0].included && !app.rows[0].highlighted);
+        let saved = Settings::load(&app.data.join("settings.json"));
+        assert!((saved.table_name_ratio - app.settings.table_name_ratio).abs() < 0.001);
+        assert!((saved.table_status_width - app.settings.table_status_width).abs() < 0.1);
+        let original_ratio = app.settings.table_name_ratio;
+        let _ = render(&ctx, &mut app, 480., vec![]);
+        assert_eq!(app.settings.table_name_ratio, original_ratio);
+        for width in [0., 100., 480., 700., 1000., 1920.] {
+            let columns = FileColumns::new(width, 0.95, 10000.);
+            assert!(columns.widths.iter().all(|v| v.is_finite() && *v >= 0.));
+            assert!((columns.widths.iter().sum::<f32>() - (width - 52.).max(0.)).abs() < 0.01);
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn right_click_episode_action_opens_numbering_and_apply_updates_only_preview() {
+        let ctx = Context::default();
+        let cc = eframe::CreationContext::_new_kittest(ctx.clone());
+        let root =
+            std::env::temp_dir().join(format!("anemorph-episode-context-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let file = root.join("Unnumbered Movie clip.mp4");
+        std::fs::write(&file, b"fixture").unwrap();
+        let mut app = App::new(&cc, Some(root.join("app")));
+        app.data = root.join("data");
+        app.root = Some(root.clone());
+        app.series = "Show".into();
+        app.settings.auto_detect = false;
+        app.media_markers = std::sync::Arc::new(engine::MediaMarkers::new());
+        app.files = std::sync::Arc::new(vec![file.clone()]);
+        app.rebuild();
+        fn render(ctx: &Context, app: &mut App, events: Vec<egui::Event>) -> egui::FullOutput {
+            ctx.run(
+                egui::RawInput {
+                    screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(900., 500.))),
+                    events,
+                    ..Default::default()
+                },
+                |ctx| {
+                    egui::CentralPanel::default().show(ctx, |ui| app.table(ui, app.palette()));
+                    app.episode_marker_dialog(ctx);
+                },
+            )
+        }
+        let _ = render(&ctx, &mut app, vec![]);
+        let row = ctx
+            .read_response(Id::new(("file_row", &file)))
+            .unwrap()
+            .rect
+            .center();
+        for pressed in [true, false] {
+            let _ = render(
+                &ctx,
+                &mut app,
+                vec![
+                    egui::Event::PointerMoved(row),
+                    egui::Event::PointerButton {
+                        pos: row,
+                        button: egui::PointerButton::Secondary,
+                        pressed,
+                        modifiers: Modifiers::NONE,
+                    },
+                ],
+            );
+        }
+        let output = render(&ctx, &mut app, vec![]);
+        let point = |output: &egui::FullOutput, text: &str| {
+            output
+                .shapes
+                .iter()
+                .find_map(|s| match &s.shape {
+                    egui::Shape::Text(t) if t.galley.job.text == text => {
+                        Some(t.pos + Vec2::new(10., t.galley.size().y / 2.))
+                    }
+                    _ => None,
+                })
+                .unwrap()
+        };
+        let button = point(&output, "Mark as episode");
+        for pressed in [true, false] {
+            let _ = render(
+                &ctx,
+                &mut app,
+                vec![
+                    egui::Event::PointerMoved(button),
+                    egui::Event::PointerButton {
+                        pos: button,
+                        button: egui::PointerButton::Primary,
+                        pressed,
+                        modifiers: Modifiers::NONE,
+                    },
+                ],
+            );
+        }
+        let dialog = app.episode_dialog.as_mut().unwrap();
+        dialog.season = 2;
+        dialog.first_episode = 23;
+        let output = render(&ctx, &mut app, vec![]);
+        let button = point(&output, "Apply");
+        for pressed in [true, false] {
+            let _ = render(
+                &ctx,
+                &mut app,
+                vec![
+                    egui::Event::PointerMoved(button),
+                    egui::Event::PointerButton {
+                        pos: button,
+                        button: egui::PointerButton::Primary,
+                        pressed,
+                        modifiers: Modifiers::NONE,
+                    },
+                ],
+            );
+        }
+        assert!(app.episode_dialog.is_none());
+        assert_eq!(app.rows[0].kind, engine::MediaKind::Episode);
+        assert_eq!(app.rows[0].output, "Show S02E23.mp4");
+        assert!(file.exists());
+        assert!(!root.join("Show S02E23.mp4").exists());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
     fn table_actions_are_icons_on_the_right() {
         let ctx = Context::default();
         let cc = eframe::CreationContext::_new_kittest(ctx.clone());
@@ -311,6 +615,7 @@ mod title_bar_tests {
 #[derive(Clone, Copy)]
 struct Palette {
     bg: Color32,
+    title_bar: Color32,
     surface: Color32,
     input: Color32,
     text: Color32,
@@ -332,6 +637,7 @@ impl App {
         let surface = Color32::from_gray(if d { 29 } else { 238 });
         Palette {
             bg: Color32::from_gray(if d { 20 } else { 247 }),
+            title_bar: Color32::from_gray(if d { 32 } else { 238 }),
             surface,
             input: Color32::from_gray(if d { 24 } else { 255 }),
             text: Color32::from_gray(if d { 237 } else { 32 }),
@@ -549,7 +855,7 @@ impl App {
                     && !self.nav_rects.iter().any(|r| r.contains(pos))
             })
         });
-        if drag && !self.about_open {
+        if drag && !self.about_open && self.episode_dialog.is_none() {
             if ui.ctx().input(|i| {
                 i.pointer
                     .button_double_clicked(egui::PointerButton::Primary)
@@ -732,7 +1038,7 @@ impl App {
             let response = ui.interact(r, Id::new("refresh_series"), Sense::click());
             let c = r.center();
             draw_refresh(ui.painter(), c, 6., p.muted);
-            response.on_hover_text("Refresh series name and filename preview")
+            response.on_hover_text("Restore detected series name")
         };
         (edit, button.clicked())
     }
@@ -786,32 +1092,27 @@ impl App {
             self.plan_due = Some(Instant::now() + Duration::from_millis(280));
             ui.ctx().request_repaint_after(Duration::from_millis(280));
         }
-        if refresh || (se.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter))) {
+        if refresh {
             self.refresh_series()
+        } else if se.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+            self.rebuild()
         }
         ui.advance_cursor_after_rect(Rect::from_min_size(top, Vec2::new(width, 74.)));
-        if !self.settings.auto_detect {
-            ui.horizontal(|ui| {
-                ui.label("Season");
-                let a =
-                    ui.add(egui::DragValue::new(&mut self.settings.default_season).range(0..=999));
-                ui.label("First episode");
-                let b =
-                    ui.add(egui::DragValue::new(&mut self.settings.first_episode).range(0..=9999));
-                if a.changed() || b.changed() {
-                    self.rebuild();
-                    self.save_settings()
-                }
-            });
-            ui.add_space(8.);
-        }
         let (_, _, selected) = self.row_counts();
         ui.horizontal(|ui| {
             ui.label(RichText::new("Files").size(16.).strong());
             ui.label(
-                RichText::new(format!("{} files", self.rows.len()))
-                    .size(12.)
-                    .color(p.muted),
+                RichText::new(format!(
+                    "{} {}files",
+                    self.rows.len(),
+                    if self.selected_files.is_some() {
+                        "selected "
+                    } else {
+                        ""
+                    }
+                ))
+                .size(12.)
+                .color(p.muted),
             );
             if selected > 0 {
                 ui.label(
@@ -888,12 +1189,8 @@ impl App {
         {
             self.open(root, false, ui.ctx());
         }
-        let previous = (
-            self.settings.mkv,
-            self.settings.mp4,
-            self.settings.other_video,
-        );
-        let filtered = previous != (true, true, true);
+        let previous = self.settings.container_mask();
+        let filtered = !self.settings.filter_extensions.is_empty();
         let filter = icon_button(
             ui,
             filter_rect,
@@ -913,41 +1210,16 @@ impl App {
                     .inner_margin(12.),
             )
             .show(|ui| {
-                ui.set_width(160.);
+                ui.set_width(232.);
                 ui.label(RichText::new("Containers").strong());
                 ui.add_space(6.);
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing.x = 8.;
-                    container_choice(
-                        ui,
-                        "MKV",
-                        &mut self.settings.mkv,
-                        p,
-                        self.settings.animations,
-                    );
-                    container_choice(
-                        ui,
-                        "MP4",
-                        &mut self.settings.mp4,
-                        p,
-                        self.settings.animations,
-                    );
-                });
-                container_choice(
-                    ui,
-                    "AVI / M4V / WebM",
-                    &mut self.settings.other_video,
-                    p,
-                    self.settings.animations,
-                );
+                egui::ScrollArea::vertical()
+                    .max_height((ui.ctx().content_rect().height() * 0.5).min(230.))
+                    .show(ui, |ui| {
+                        container_filters(ui, &mut self.settings, &mut self.container_anchor, p);
+                    });
             });
-        if previous
-            != (
-                self.settings.mkv,
-                self.settings.mp4,
-                self.settings.other_video,
-            )
-        {
+        if previous != self.settings.container_mask() {
             self.save_settings();
             if let Some(root) = self.root.clone() {
                 self.open(root, false, ui.ctx());
@@ -1068,20 +1340,227 @@ fn draw_refresh(painter: &egui::Painter, center: Pos2, radius: f32, color: Color
     ));
 }
 
-fn container_choice(ui: &mut Ui, label: &str, selected: &mut bool, p: Palette, animations: bool) {
+fn uninstall_action(ui: &mut Ui, p: Palette, enabled: bool) -> Response {
+    let color = if enabled {
+        if p.bg.r() < 128 {
+            Color32::from_rgb(225, 131, 131)
+        } else {
+            Color32::from_rgb(170, 55, 55)
+        }
+    } else {
+        p.muted.gamma_multiply(0.45)
+    };
+    let text = ui
+        .painter()
+        .layout_no_wrap("Uninstall".into(), FontId::proportional(13.), color);
+    let width = text.size().x + 44.;
+    let (row, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 34.), Sense::hover());
+    let label = ui.painter().layout_no_wrap(
+        "Uninstall Anemorph".into(),
+        FontId::proportional(13.),
+        p.text,
+    );
+    ui.painter().galley(
+        Pos2::new(row.left(), row.center().y - label.size().y / 2.),
+        label,
+        p.text,
+    );
+    let rect = Rect::from_min_size(
+        Pos2::new(row.right() - width, row.top()),
+        Vec2::new(width, row.height()),
+    );
+    let response = ui.interact(
+        rect,
+        Id::new("uninstall_anemorph"),
+        if enabled {
+            Sense::click()
+        } else {
+            Sense::hover()
+        },
+    );
+    let hovered = enabled && response.hovered();
+    ui.painter().rect(
+        rect,
+        7,
+        blend(color, p.surface, if hovered { 0.13 } else { 0.035 }),
+        Stroke::new(
+            1.0_f32,
+            color.gamma_multiply(if hovered { 0.75 } else { 0.35 }),
+        ),
+        StrokeKind::Inside,
+    );
+    let c = rect.left_center() + Vec2::new(18., 0.);
+    let stroke = Stroke::new(1.4_f32, color);
+    ui.painter()
+        .line_segment([c + Vec2::new(-6., -4.), c + Vec2::new(6., -4.)], stroke);
+    ui.painter().add(egui::Shape::line(
+        vec![
+            c + Vec2::new(-4., -1.),
+            c + Vec2::new(-3., 6.),
+            c + Vec2::new(3., 6.),
+            c + Vec2::new(4., -1.),
+        ],
+        stroke,
+    ));
+    ui.painter().add(egui::Shape::line(
+        vec![
+            c + Vec2::new(-2., -5.),
+            c + Vec2::new(-2., -7.),
+            c + Vec2::new(2., -7.),
+            c + Vec2::new(2., -5.),
+        ],
+        stroke,
+    ));
+    ui.painter().galley(
+        Pos2::new(rect.left() + 32., rect.center().y - text.size().y / 2.),
+        text,
+        color,
+    );
+    if hovered {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+    }
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(egui::WidgetType::Button, enabled, "Uninstall Anemorph")
+    });
+    response
+}
+
+fn select_container(
+    settings: &mut Settings,
+    anchor: &mut Option<(usize, bool)>,
+    index: usize,
+    shift: bool,
+) {
+    if shift && let Some((start, selected)) = *anchor {
+        for (extension, _) in &engine::VIDEO_CONTAINERS[start.min(index)..=start.max(index)] {
+            if settings.container_visible(extension) {
+                settings.set_container_selected(extension, selected);
+            }
+        }
+    } else {
+        let extension = engine::VIDEO_CONTAINERS[index].0;
+        settings.toggle_container(extension);
+        *anchor = Some((index, settings.container_selected(extension)));
+    }
+}
+#[cfg(test)]
+mod filter_range_tests {
+    use super::*;
+    #[test]
+    fn ranges_add_and_remove_without_restricting_other_choices() {
+        let mut settings = Settings::default();
+        let mut anchor = None;
+        select_container(&mut settings, &mut anchor, 0, false);
+        select_container(&mut settings, &mut anchor, 2, true);
+        assert_eq!(settings.container_mask(), 0b111);
+        select_container(&mut settings, &mut anchor, 1, false);
+        select_container(&mut settings, &mut anchor, 0, true);
+        assert_eq!(settings.container_mask(), 0b100);
+        settings.toggle_all_containers();
+        assert_eq!(
+            settings.filter_extensions.len(),
+            settings.home_filter_options.len()
+        );
+        settings.toggle_all_containers();
+        assert_eq!(settings.container_mask(), 0);
+        assert!(settings.container_enabled("mov") && settings.container_enabled("mkv"));
+    }
+}
+
+fn container_filters(
+    ui: &mut Ui,
+    settings: &mut Settings,
+    anchor: &mut Option<(usize, bool)>,
+    p: Palette,
+) {
+    if settings.home_filter_options.is_empty() {
+        ui.label(RichText::new("No filter options enabled").color(p.muted));
+        return;
+    }
+    let all = !settings.home_filter_options.is_empty()
+        && settings.filter_extensions.len() == settings.home_filter_options.len();
+    if ui
+        .add(egui::Button::new(if all { "Unselect all" } else { "Select all" }).frame(false))
+        .clicked()
+    {
+        settings.toggle_all_containers();
+        *anchor = None;
+    }
+    ui.horizontal_wrapped(|ui| {
+        ui.spacing_mut().item_spacing = Vec2::new(6., 4.);
+        for (index, (extension, label)) in engine::VIDEO_CONTAINERS.iter().enumerate() {
+            if !settings.container_visible(extension) {
+                continue;
+            }
+            if container_choice(
+                ui,
+                label,
+                settings.container_selected(extension),
+                p,
+                settings.animations,
+            )
+            .clicked()
+            {
+                select_container(settings, anchor, index, ui.input(|i| i.modifiers.shift));
+            }
+        }
+    });
+}
+fn container_options(ui: &mut Ui, settings: &mut Settings, p: Palette) {
+    let all = settings.home_filter_options.len() == engine::VIDEO_CONTAINERS.len();
+    if ui
+        .add(egui::Button::new(if all { "Unselect all" } else { "Select all" }).frame(false))
+        .clicked()
+    {
+        settings.home_filter_options = if all {
+            Vec::new()
+        } else {
+            engine::VIDEO_CONTAINERS
+                .iter()
+                .map(|(ext, _)| (*ext).to_owned())
+                .collect()
+        };
+        settings
+            .filter_extensions
+            .retain(|ext| settings.home_filter_options.contains(ext));
+    }
+    ui.push_id("home_filter_visibility", |ui| {
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing = Vec2::new(6., 4.);
+            for (extension, label) in engine::VIDEO_CONTAINERS {
+                if container_choice(
+                    ui,
+                    label,
+                    settings.container_visible(extension),
+                    p,
+                    settings.animations,
+                )
+                .clicked()
+                {
+                    settings.toggle_container_visibility(extension);
+                }
+            }
+        });
+    });
+}
+
+fn container_choice(
+    ui: &mut Ui,
+    label: &str,
+    selected: bool,
+    p: Palette,
+    animations: bool,
+) -> Response {
     let text_width = ui
         .painter()
         .layout_no_wrap(label.into(), FontId::proportional(13.), p.text)
         .size()
         .x;
     let (rect, response) = ui.allocate_exact_size(Vec2::new(text_width + 24., 30.), Sense::click());
-    if response.clicked() {
-        *selected = !*selected;
-    }
     let t = if animations {
         ui.ctx()
-            .animate_bool_with_time(Id::new(("container_glow", label)), *selected, 0.14)
-    } else if *selected {
+            .animate_bool_with_time(ui.id().with(("container_glow", label)), selected, 0.14)
+    } else if selected {
         1.
     } else {
         0.
@@ -1108,8 +1587,9 @@ fn container_choice(ui: &mut Ui, label: &str, selected: &mut bool, p: Palette, a
         blend(p.accent, p.text, t),
     );
     response.widget_info(|| {
-        egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, true, *selected, label)
+        egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, true, selected, label)
     });
+    response
 }
 
 fn nav_icon(ui: &Ui, c: Pos2, page: Page, color: Color32) {
@@ -1310,6 +1790,42 @@ fn hsv_picker(ui: &mut Ui, color: &mut Color32, hue: &mut f32) -> bool {
     *color != original
 }
 
+#[derive(Clone, Copy)]
+struct FileColumns {
+    widths: [f32; 3],
+    status: bool,
+    minimum_name: f32,
+}
+impl FileColumns {
+    fn new(width: f32, ratio: f32, status_width: f32) -> Self {
+        let available = (width - 52.).max(0.);
+        let status = width >= 700.;
+        let minimum_name = (available * 0.25).min(120.);
+        let status_width = if status {
+            status_width.clamp(
+                90_f32.min(available - 2. * minimum_name),
+                (available - 2. * minimum_name).max(0.),
+            )
+        } else {
+            0.
+        };
+        let names = (available - status_width).max(0.);
+        let original = (names * ratio).clamp(minimum_name, names - minimum_name);
+        Self {
+            widths: [original, names - original, status_width],
+            status,
+            minimum_name,
+        }
+    }
+    fn offsets(self) -> [f32; 4] {
+        [
+            42.,
+            42. + self.widths[0],
+            42. + self.widths[0] + self.widths[1],
+            42. + self.widths.iter().sum::<f32>(),
+        ]
+    }
+}
 fn paint_left(ui: &Ui, rect: Rect, text: &str, color: Color32, size: f32) {
     ui.painter()
         .with_clip_rect(rect.intersect(ui.clip_rect()))

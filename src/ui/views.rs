@@ -7,29 +7,183 @@ impl App {
         let p = self.palette();
         let mut close = false;
         let response = egui::Modal::new(Id::new("about_anemorph"))
-            .frame(egui::Frame::new().fill(p.surface).stroke(Stroke::new(1.0_f32, p.line)).corner_radius(12).inner_margin(20.))
+            .frame(
+                egui::Frame::new()
+                    .fill(p.surface)
+                    .stroke(Stroke::new(1.0_f32, p.line))
+                    .corner_radius(12)
+                    .inner_margin(20.),
+            )
             .show(ctx, |ui| {
                 ui.set_width((ctx.input(|i| i.content_rect().width()) - 80.).clamp(220., 400.));
-                ui.horizontal(|ui| {
-                    ui.heading("About Anemorph");
-                    ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                        let (rect, _) = ui.allocate_exact_size(Vec2::splat(28.), Sense::hover());
-                        if icon_button(ui, rect, "about_close", ActionIcon::Close, p, true, false).clicked() { close = true; }
+                ui.spacing_mut().item_spacing.y = 6.;
+                ui.scope(|ui| {
+                    ui.spacing_mut().item_spacing.y = 2.;
+                    ui.horizontal(|ui| {
+                        ui.heading("About Anemorph");
+                        ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                            let (rect, _) =
+                                ui.allocate_exact_size(Vec2::splat(22.), Sense::hover());
+                            if icon_button(
+                                ui,
+                                rect,
+                                "about_close",
+                                ActionIcon::Close,
+                                p,
+                                true,
+                                false,
+                            )
+                            .clicked()
+                            {
+                                close = true;
+                            }
+                        });
                     });
+                    ui.label(
+                        RichText::new(format!("Version {APP_VERSION}"))
+                            .size(11.)
+                            .color(p.muted),
+                    );
                 });
-                ui.add_space(12.);
-                ui.label(format!("Version {APP_VERSION}"));
                 ui.add_space(8.);
-                ui.label("Anemorph is a local file renamer for anime and TV episodes.");
+                ui.label("A free, open-source file renamer for anime, TV, and movies.");
                 ui.add_space(8.);
-                ui.label("Detect season and episode numbers, choose your own naming format, and preview the filenames before applying a batch.");
-                ui.add_space(8.);
-                ui.label("Use it to tidy filenames in a media library. Container filters, file selection, collision checks, and Undo help manage each batch.");
-                ui.add_space(8.);
-                ui.label(RichText::new("Only filenames change. Your video contents stay intact.").color(p.muted));
+                ui.separator();
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 4.;
+                    ui.label(RichText::new("Created by").color(p.muted));
+                    ui.hyperlink_to("@yaboirar", "https://github.com/yaboirar");
+                });
             });
         if close || response.should_close() {
             self.about_open = false;
+        }
+    }
+    pub(super) fn episode_marker_dialog(&mut self, ctx: &Context) {
+        let p = self.palette();
+        let name = if self.series.trim().is_empty() {
+            "Anemorph"
+        } else {
+            self.series.trim()
+        };
+        let Some(dialog) = self.episode_dialog.as_mut() else {
+            return;
+        };
+        let mut apply = false;
+        let mut close = false;
+        let response = egui::Modal::new(Id::new("episode_marker_dialog"))
+            .frame(
+                egui::Frame::new()
+                    .fill(p.surface)
+                    .stroke(Stroke::new(1_f32, p.line))
+                    .corner_radius(12)
+                    .inner_margin(20.),
+            )
+            .show(ctx, |ui| {
+                ui.set_width((ctx.input(|i| i.content_rect().width()) - 80.).clamp(240., 420.));
+                ui.spacing_mut().item_spacing.y = 8.;
+                ui.horizontal(|ui| {
+                    ui.heading("Mark as episode");
+                    ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                        let (rect, _) = ui.allocate_exact_size(Vec2::splat(22.), Sense::hover());
+                        if icon_button(
+                            ui,
+                            rect,
+                            "episode_marker_close",
+                            ActionIcon::Close,
+                            p,
+                            true,
+                            false,
+                        )
+                        .clicked()
+                        {
+                            close = true;
+                        }
+                    });
+                });
+                let first = dialog
+                    .entries
+                    .iter()
+                    .find(|e| e.numbering.is_none())
+                    .unwrap();
+                let filename = first.path.file_name().unwrap_or_default().to_string_lossy();
+                if dialog.entries.len() == 1 {
+                    ui.add(
+                        egui::Label::new(RichText::new(filename.as_ref()).color(p.muted))
+                            .truncate(),
+                    )
+                    .on_hover_text(filename.as_ref());
+                } else {
+                    ui.label(
+                        RichText::new(format!(
+                            "{} files need episode numbers",
+                            dialog.unknown_count
+                        ))
+                        .color(p.muted),
+                    );
+                }
+                ui.add_space(4.);
+                ui.horizontal(|ui| {
+                    ui.vertical(|ui| {
+                        ui.label("Season");
+                        ui.add(
+                            egui::DragValue::new(&mut dialog.season)
+                                .range(0..=999)
+                                .min_decimals(0),
+                        );
+                    });
+                    ui.add_space(18.);
+                    ui.vertical(|ui| {
+                        ui.label(if dialog.unknown_count > 1 {
+                            "First episode"
+                        } else {
+                            "Episode"
+                        });
+                        ui.add(
+                            egui::DragValue::new(&mut dialog.first_episode)
+                                .range(0..=9999)
+                                .min_decimals(0),
+                        );
+                    });
+                });
+                let ext = first.path.extension().unwrap_or_default().to_string_lossy();
+                ui.label(
+                    RichText::new(format!(
+                        "{name} {}.{ext}",
+                        dialog.format.render(dialog.season, dialog.first_episode)
+                    ))
+                    .monospace()
+                    .size(12.)
+                    .color(p.muted),
+                );
+                if dialog.entries.len() > dialog.unknown_count {
+                    ui.label(
+                        RichText::new("Existing episode numbers are kept.")
+                            .size(12.)
+                            .color(p.muted),
+                    );
+                }
+                if let Some(error) = &dialog.error {
+                    ui.label(RichText::new(error).color(Color32::from_rgb(242, 158, 152)));
+                }
+                ui.add_space(4.);
+                if ui
+                    .add(
+                        egui::Button::new(RichText::new("Apply").color(on_color(p.accent)))
+                            .fill(p.accent),
+                    )
+                    .clicked()
+                {
+                    apply = true;
+                }
+                if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                    apply = true;
+                }
+            });
+        if close || response.should_close() {
+            self.episode_dialog = None;
+        } else if apply {
+            self.apply_episode_marker();
         }
     }
     fn color_editor(&mut self, ui: &mut Ui, p: Palette) {
@@ -97,8 +251,6 @@ impl App {
     pub(super) fn table(&mut self, ui: &mut Ui, p: Palette) {
         let height = ui.available_height().max(0.);
         let width = ui.available_width();
-        let status = width >= 700.;
-        let col = ((width - 42. - if status { 116. } else { 0. }) / 2.).max(50.);
         let top = ui.cursor().min;
         let header = Rect::from_min_size(top, Vec2::new(width, 38.));
         ui.painter().rect_filled(
@@ -107,6 +259,91 @@ impl App {
             p.input,
         );
         ui.painter().rect_filled(header, 5, p.surface);
+        for divider in 0..2 {
+            let columns = FileColumns::new(
+                width,
+                self.settings.table_name_ratio,
+                self.settings.table_status_width,
+            );
+            if divider == 1 && !columns.status {
+                continue;
+            }
+            let offsets = columns.offsets();
+            let x = top.x + offsets[divider + 1];
+            let grip = Rect::from_center_size(
+                Pos2::new(x, header.center().y),
+                Vec2::new(10., header.height() - 4.),
+            );
+            let response = ui.interact(
+                grip,
+                Id::new(("column_divider", divider)),
+                Sense::click_and_drag(),
+            );
+            if response.hovered() || response.dragged() {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
+            }
+            if response.drag_started() {
+                let start = ui
+                    .input(|i| i.pointer.press_origin())
+                    .unwrap_or(grip.center());
+                self.column_drag = Some((divider, x - start.x));
+            }
+            let reset = response.double_clicked();
+            if (response.dragged() || reset)
+                && let Some(pointer) = response.interact_pointer_pos()
+            {
+                let offset = self
+                    .column_drag
+                    .filter(|(i, _)| *i == divider)
+                    .map_or(0., |(_, offset)| offset);
+                let position = pointer.x + offset - top.x;
+                if divider == 0 {
+                    let names = columns.widths[0] + columns.widths[1];
+                    let original = if reset {
+                        names * 0.5
+                    } else {
+                        (position - 42.).clamp(columns.minimum_name, names - columns.minimum_name)
+                    };
+                    if names > 0. {
+                        self.settings.table_name_ratio = (original / names).clamp(0.05, 0.95);
+                    }
+                } else {
+                    let available = columns.widths.iter().sum::<f32>();
+                    let maximum = (available - columns.widths[0] - columns.minimum_name).max(90.);
+                    let status_width = if reset {
+                        116_f32.clamp(90., maximum)
+                    } else {
+                        (available - (position - 42.)).clamp(90., maximum)
+                    };
+                    self.settings.table_status_width = status_width;
+                    self.settings.table_name_ratio =
+                        (columns.widths[0] / (available - status_width)).clamp(0.05, 0.95);
+                }
+            }
+            if response.drag_stopped() || reset {
+                self.column_drag = None;
+                self.save_settings();
+            }
+            let current = FileColumns::new(
+                width,
+                self.settings.table_name_ratio,
+                self.settings.table_status_width,
+            );
+            let boundary = top.x + current.offsets()[divider + 1];
+            ui.painter().line_segment(
+                [
+                    Pos2::new(boundary, header.top() + 8.),
+                    Pos2::new(boundary, header.bottom() - 8.),
+                ],
+                Stroke::new(1_f32, p.line),
+            );
+        }
+        let columns = FileColumns::new(
+            width,
+            self.settings.table_name_ratio,
+            self.settings.table_status_width,
+        );
+        let offsets = columns.offsets();
         let (ready, included, _) = self.row_counts();
         let all = ready > 0 && ready == included;
         let some = included > 0;
@@ -161,20 +398,18 @@ impl App {
                 row.included = !all;
             }
         }
-        for (label, x) in [
-            ("Original filename", 42.),
-            ("New filename", 42. + col),
-            ("Status", 42. + col * 2.),
-        ] {
-            if label != "Status" || status {
-                ui.painter().text(
-                    top + Vec2::new(x + 10., 19.),
-                    Align2::LEFT_CENTER,
-                    label,
-                    FontId::proportional(12.),
-                    p.muted,
-                );
+        for (i, label) in ["Original filename", "New filename", "Status"]
+            .into_iter()
+            .enumerate()
+        {
+            if i == 2 && !columns.status {
+                continue;
             }
+            let rect = Rect::from_min_max(
+                Pos2::new(top.x + offsets[i] + 10., header.top()),
+                Pos2::new(top.x + offsets[i + 1] - 10., header.bottom()),
+            );
+            paint_left(ui, rect, label, p.muted, 12.);
         }
         ui.advance_cursor_after_rect(header);
         let remaining = (height - 38.).max(0.);
@@ -197,6 +432,7 @@ impl App {
         }
         let row_height = if self.settings.compact { 28. } else { 38. };
         let mut action = None;
+        let mut marker_action = None;
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
             .max_height(remaining)
@@ -204,8 +440,10 @@ impl App {
                 self.max_visible_rows = self.max_visible_rows.max(range.len());
                 for index in range {
                     let row = &self.rows[index];
-                    let (rect, response) =
-                        ui.allocate_exact_size(Vec2::new(width - 10., row_height), Sense::click());
+                    let (rect, _) =
+                        ui.allocate_exact_size(Vec2::new(width - 10., row_height), Sense::hover());
+                    let response =
+                        ui.interact(rect, Id::new(("file_row", &row.source)), Sense::click());
                     if row.highlighted {
                         ui.painter().rect_filled(rect, 0, p.selected);
                     } else if response.hovered() {
@@ -240,34 +478,62 @@ impl App {
                     }
                     let check =
                         ui.interact(cb.expand(5.), Id::new(("check", index)), Sense::click());
-                    let original = Rect::from_min_size(
-                        rect.min + Vec2::new(42., 3.),
-                        Vec2::new(col - 10., row_height - 6.),
+                    let original = Rect::from_min_max(
+                        rect.min + Vec2::new(offsets[0] + 10., 3.),
+                        Pos2::new(rect.left() + offsets[1] - 10., rect.bottom() - 3.),
                     );
-                    let output = original.translate(Vec2::new(col, 0.));
+                    let output = Rect::from_min_max(
+                        rect.min + Vec2::new(offsets[1] + 10., 3.),
+                        Pos2::new(rect.left() + offsets[2] - 10., rect.bottom() - 3.),
+                    );
                     paint_left(ui, original, &row.original, p.text, 12.);
                     paint_left(ui, output, &row.output, p.text, 12.);
                     response.clone().on_hover_ui(|ui| {
+                        ui.label(match row.kind {
+                            engine::MediaKind::Movie => "Movie",
+                            engine::MediaKind::Episode => "Episode",
+                        });
+                        ui.label(row.status.as_ref());
                         ui.label(&row.original);
                         ui.label(&row.output);
                     });
-                    if status {
-                        let r = Rect::from_min_size(
-                            rect.min + Vec2::new(42. + col * 2. + 5., 7.),
-                            Vec2::new(105., row_height - 14.),
+                    if columns.status {
+                        let status_rect = Rect::from_min_max(
+                            rect.min + Vec2::new(offsets[2] + 10., 3.),
+                            Pos2::new(rect.left() + offsets[3] - 10., rect.bottom() - 3.),
                         );
-                        ui.put(
-                            r,
-                            egui::Label::new(RichText::new(row.status.as_ref()).size(11.).color(
-                                if row.ready {
-                                    blend(p.accent, p.text, 0.65)
-                                } else {
-                                    p.muted
-                                },
-                            ))
-                            .halign(egui::Align::Min)
-                            .truncate(),
+                        paint_left(
+                            ui,
+                            status_rect,
+                            row.status.as_ref(),
+                            if row.ready {
+                                blend(p.accent, p.text, 0.65)
+                            } else {
+                                p.muted
+                            },
+                            11.,
                         );
+                    }
+                    response.context_menu(|ui| {
+                        if ui.button("Mark as movie").clicked() {
+                            marker_action = Some((index, Some(engine::MediaKind::Movie)));
+                            ui.close();
+                        }
+                        if ui.button("Mark as episode").clicked() {
+                            marker_action = Some((index, Some(engine::MediaKind::Episode)));
+                            ui.close();
+                        }
+                        if self
+                            .media_markers
+                            .contains_key(&engine::media_marker_key(&row.source))
+                            && ui.button("Use automatic detection").clicked()
+                        {
+                            marker_action = Some((index, None));
+                            ui.close();
+                        }
+                    });
+                    if response.secondary_clicked() && !row.highlighted {
+                        action = Some((index, false, Modifiers::NONE));
                     }
                     if check.clicked() && row.ready {
                         action = Some((index, true, ui.input(|i| i.modifiers)))
@@ -277,7 +543,10 @@ impl App {
                 }
             });
         if let Some((i, c, m)) = action {
-            self.select(i, c, m)
+            self.select(i, c, m);
+        }
+        if let Some((index, kind)) = marker_action {
+            self.set_media_marker(index, kind);
         }
     }
     pub(super) fn settings_ui(&mut self, ui: &mut Ui) {
@@ -316,14 +585,111 @@ impl App {
         ui.strong("Highlight color");
         card(ui, p, |ui| self.color_editor(ui, p));
         self.apply_preferences(previous, ui.ctx());
+        ui.strong("Integration");
+        self.integration.poll(
+            self.uninstaller
+                .as_ref()
+                .and_then(|p| p.parent())
+                .map(PathBuf::from),
+            ui.ctx(),
+        );
+        card(ui, p, |ui| {
+            ui.horizontal(|ui| {
+                ui.set_min_height(34.);
+                ui.label("First right-click menu");
+                let label = if self.integration.pending {
+                    "Working..."
+                } else if self.integration.enabled {
+                    "Disable"
+                } else {
+                    "Enable"
+                };
+                ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                    let active = !self.integration.enabled && !self.integration.pending;
+                    let button = egui::Button::new(RichText::new(label).color(if active {
+                        p.accent
+                    } else {
+                        p.text
+                    }))
+                    .min_size(Vec2::new(94., 34.))
+                    .fill(if active {
+                        blend(p.accent, p.surface, 0.09)
+                    } else {
+                        p.button
+                    })
+                    .stroke(Stroke::new(
+                        1.0_f32,
+                        if active {
+                            blend(p.accent, p.line, 0.45)
+                        } else {
+                            p.line
+                        },
+                    ));
+                    if ui
+                        .add_enabled(
+                            self.uninstaller.is_some() && !self.integration.pending,
+                            button,
+                        )
+                        .on_hover_text(if self.integration.enabled {
+                            "Return to the classic Explorer menu."
+                        } else {
+                            "Enable Anemorph on Windows 11's first right-click menu."
+                        })
+                        .clicked()
+                        && let Some(root) = self.uninstaller.as_ref().and_then(|p| p.parent())
+                    {
+                        self.integration
+                            .start(root.to_path_buf(), Some(!self.integration.enabled));
+                    }
+                });
+            });
+            if !self.integration.enabled {
+                ui.label(RichText::new("Windows may ask for administrator approval to trust Anemorph's signing certificate.").small().color(p.muted));
+            }
+            if !self.integration.message.is_empty() {
+                ui.label(
+                    RichText::new(&self.integration.message)
+                        .small()
+                        .color(p.muted),
+                );
+            }
+        });
+        let enabled = self.uninstaller.is_some()
+            && !self.busy
+            && self.preview.is_none()
+            && !self.integration.pending;
+        let mut uninstall = false;
+        card(ui, p, |ui| {
+            uninstall = uninstall_action(ui, p, enabled)
+                .on_hover_text(if self.uninstaller.is_some() {
+                    "Open the clean uninstaller. Your videos are kept."
+                } else {
+                    "Available after installing Anemorph with setup."
+                })
+                .clicked();
+        });
+        if uninstall && let Some(path) = &self.uninstaller {
+            match uninstall::launch(path, std::process::id()) {
+                Ok(()) => {
+                    self.plan_due = None;
+                    self.folder_due = None;
+                    ui.ctx().send_viewport_cmd(ViewportCommand::Close);
+                }
+                Err(error) => self.uninstall_error = error,
+            }
+        }
+        if !self.uninstall_error.is_empty() {
+            ui.label(RichText::new(&self.uninstall_error).color(p.muted));
+        }
     }
     pub(super) fn configuration_ui(&mut self, ui: &mut Ui) {
         let p = self.palette();
         let previous = self.settings.clone();
         ui.heading("Configuration");
         ui.add_space(18.);
-        ui.strong("Episode format");
+        ui.strong("Filename format");
         card(ui, p, |ui| {
+            ui.label(RichText::new("Episodes").color(p.muted));
             ui.add(
                 egui::TextEdit::singleline(&mut self.format_draft)
                     .desired_width(f32::INFINITY)
@@ -343,8 +709,7 @@ impl App {
                     naming::Format::parse(&self.format_draft),
                 ));
             }
-            let format = &self.format_cache.as_ref().unwrap().1;
-            match format {
+            let episode_valid = match &self.format_cache.as_ref().unwrap().1 {
                 Ok(format) => {
                     let name = if self.series.trim().is_empty() {
                         "Anemorph"
@@ -352,14 +717,66 @@ impl App {
                         self.series.trim()
                     };
                     ui.label(
-                        RichText::new(format!("{name} {}.mkv", format.render(1, 9))).monospace(),
+                        RichText::new(format!("{name} {}.mkv", format.render(1, 9)))
+                            .monospace()
+                            .size(12.)
+                            .color(p.muted),
                     );
+                    true
                 }
                 Err(error) => {
                     ui.label(RichText::new(error).color(Color32::from_rgb(242, 158, 152)));
+                    false
                 }
+            };
+            ui.add_space(8.);
+            ui.label(RichText::new("Movies").color(p.muted));
+            ui.add(
+                egui::TextEdit::singleline(&mut self.movie_format_draft)
+                    .desired_width(f32::INFINITY)
+                    .min_size(Vec2::new(0., 36.))
+                    .vertical_align(egui::Align::Center)
+                    .margin(Vec2::new(10., 0.))
+                    .id(Id::new("movie_format"))
+                    .hint_text(naming::DEFAULT_MOVIE_FORMAT),
+            );
+            if self
+                .movie_format_cache
+                .as_ref()
+                .is_none_or(|(text, _)| text != &self.movie_format_draft)
+            {
+                self.movie_format_cache = Some((
+                    self.movie_format_draft.clone(),
+                    naming::MovieFormat::parse(&self.movie_format_draft),
+                ));
             }
-            let pending = self.format_draft != self.settings.number_format && format.is_ok();
+            let movie_valid = match &self.movie_format_cache.as_ref().unwrap().1 {
+                Ok(format) => {
+                    ui.label(
+                        RichText::new(format!(
+                            "{}.mkv",
+                            format.render(if self.series.trim().is_empty() {
+                                "Anemorph"
+                            } else {
+                                self.series.trim()
+                            })
+                        ))
+                        .monospace()
+                        .size(12.)
+                        .color(p.muted),
+                    );
+                    true
+                }
+                Err(error) => {
+                    ui.label(RichText::new(error).color(Color32::from_rgb(242, 158, 152)));
+                    false
+                }
+            };
+            ui.add_space(6.);
+            let pending = (self.format_draft != self.settings.number_format
+                || self.movie_format_draft != self.settings.movie_format)
+                && episode_valid
+                && movie_valid;
             ui.horizontal(|ui| {
                 let apply = egui::Button::new(RichText::new("Apply").color(if pending {
                     on_color(p.accent)
@@ -374,30 +791,41 @@ impl App {
                 });
                 if ui.add(apply).clicked() && pending {
                     self.settings.number_format = self.format_draft.clone();
+                    self.settings.movie_format = self.movie_format_draft.clone();
                 }
                 if ui.button("Reset").clicked() {
                     self.format_draft = naming::DEFAULT_FORMAT.into();
+                    self.movie_format_draft = naming::DEFAULT_MOVIE_FORMAT.into();
                 }
             });
             ui.collapsing("Format tokens", |ui| {
-                egui::Grid::new("format_tokens").num_columns(2).spacing([18., 8.]).show(ui, |ui| {
-                    for (token, example) in [
-                        ("[S]", "S"), ("[Season]", "Season"),
-                        ("[E]", "E"), ("[Episode]", "Episode"),
-                        ("[SeaNum]", "Season number"), ("[EpsNum]", "Episode number"),
-                        ("[Num]", "Two-digit numbers: 01, 09"),
-                        ("[FixNum]", "Unpadded numbers: 1, 9"),
-                        ("[Space]", "One space"),
-                    ] { ui.monospace(token); ui.label(example); ui.end_row(); }
-                });
-                ui.label(RichText::new("Set [Num] or [FixNum] before number tokens. The style stays active until changed. Labels are literal text.").size(12.).color(p.muted));
+                egui::Grid::new("filename_tokens")
+                    .num_columns(2)
+                    .spacing([18., 8.])
+                    .show(ui, |ui| {
+                        for (token, meaning) in [
+                            ("[S] / [Season]", "S / Season"),
+                            ("[E] / [Episode]", "E / Episode"),
+                            ("[SeaNum]", "Season number"),
+                            ("[EpsNum]", "Episode number"),
+                            ("[Num]", "Two-digit numbers"),
+                            ("[FixNum]", "Numbers without leading zeros"),
+                            ("[Movie Name]", "Movie title from the filename"),
+                            ("[Movie]", "Movie"),
+                            ("[Space]", "One space"),
+                        ] {
+                            ui.monospace(token);
+                            ui.label(meaning);
+                            ui.end_row();
+                        }
+                    });
             });
         });
         ui.strong("Naming");
         card(ui, p, |ui| {
             toggle(
                 ui,
-                "Detect season and episode numbers",
+                "Detect numbers in unformatted filenames",
                 &mut self.settings.auto_detect,
                 p,
             );
@@ -423,23 +851,29 @@ impl App {
                 });
             });
             ui.separator();
-            ui.horizontal(|ui| {
-                ui.label("First episode in manual mode");
-                ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.add(egui::DragValue::new(&mut self.settings.first_episode).range(0..=9999));
+            toggle(
+                ui,
+                "Number unrecognized files sequentially",
+                &mut self.settings.manual_numbering,
+                p,
+            );
+            if self.settings.manual_numbering {
+                ui.horizontal(|ui| {
+                    ui.label("First episode for unrecognized files");
+                    ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.add(
+                            egui::DragValue::new(&mut self.settings.first_episode).range(0..=9999),
+                        );
+                    });
                 });
-            });
+            }
         });
         ui.strong("Folders and files");
         card(ui, p, |ui| {
             toggle(ui, "Include subfolders", &mut self.settings.subfolders, p);
             ui.separator();
-            ui.label("File types");
-            ui.horizontal_wrapped(|ui| {
-                ui.checkbox(&mut self.settings.mkv, "MKV");
-                ui.checkbox(&mut self.settings.mp4, "MP4");
-                ui.checkbox(&mut self.settings.other_video, "AVI, M4V, WebM");
-            });
+            ui.label("Home filter options");
+            container_options(ui, &mut self.settings, p);
             ui.separator();
             toggle(
                 ui,
@@ -451,39 +885,45 @@ impl App {
         if ui.button("Reset configuration").clicked() {
             let defaults = Settings::default();
             self.settings.auto_detect = defaults.auto_detect;
+            self.settings.manual_numbering = defaults.manual_numbering;
             self.settings.auto_name = defaults.auto_name;
             self.settings.clear_series_on_empty = defaults.clear_series_on_empty;
             self.settings.number_format = defaults.number_format.clone();
             self.format_draft = defaults.number_format;
+            self.settings.movie_format = defaults.movie_format.clone();
+            self.movie_format_draft = defaults.movie_format;
             self.settings.default_season = defaults.default_season;
             self.settings.first_episode = defaults.first_episode;
             self.settings.subfolders = defaults.subfolders;
-            self.settings.mkv = defaults.mkv;
-            self.settings.mp4 = defaults.mp4;
-            self.settings.other_video = defaults.other_video;
+            self.settings.filter_extensions = defaults.filter_extensions;
+            self.settings.home_filter_options = defaults.home_filter_options;
+            self.container_anchor = None;
             self.settings.remember_folder = defaults.remember_folder;
         }
         self.apply_preferences(previous, ui.ctx());
     }
     fn apply_preferences(&mut self, previous: Settings, ctx: &Context) {
         if self.settings != previous {
+            if self.settings.home_filter_options != previous.home_filter_options {
+                self.container_anchor = None;
+            }
             if self.settings.remember_folder {
                 self.settings.last_folder = self.root.clone()
             }
             self.save_settings();
             self.theme(ctx);
             let filters = self.settings.subfolders != previous.subfolders
-                || self.settings.mkv != previous.mkv
-                || self.settings.mp4 != previous.mp4
-                || self.settings.other_video != previous.other_video;
+                || self.settings.filter_extensions != previous.filter_extensions;
             if filters {
                 if let Some(root) = self.root.clone() {
                     self.open(root, false, ctx)
                 }
             } else if self.settings.auto_detect != previous.auto_detect
+                || self.settings.manual_numbering != previous.manual_numbering
                 || self.settings.default_season != previous.default_season
                 || self.settings.first_episode != previous.first_episode
                 || self.settings.number_format != previous.number_format
+                || self.settings.movie_format != previous.movie_format
             {
                 self.rebuild()
             }
@@ -538,7 +978,8 @@ impl App {
                     3 => "minimum.png",
                     4 => "light.png",
                     5 => "about.png",
-                    _ => "filters.png",
+                    6 => "filters.png",
+                    _ => "episode-marker.png",
                 };
                 let bytes: Vec<u8> = image.pixels.iter().flat_map(|p| p.to_array()).collect();
                 let _ = image::save_buffer(
@@ -555,7 +996,25 @@ impl App {
             if smoke.last.elapsed() < Duration::from_millis(1800) {
                 return;
             }
-            let report = serde_json::json!({"language":"Rust","files":self.rows.len(),"screenshots":smoke.snapshots,"frames":self.frames,"max_visible_rows":self.max_visible_rows,"idle_repaints_1_8_seconds":self.frames-smoke.idle_start,"mean_ui_work_ms":self.ui_micros as f64/self.frames.max(1)as f64/1000.,"window":"Anemorph","maximized_restore_verified":smoke.native_restore_verified});
+            smoke.idle_frames = Some(self.frames - smoke.idle_start);
+            smoke.stage = 18;
+            smoke.last = Instant::now();
+            if let Some(index) = self.rows.iter().position(|row| {
+                row.source
+                    .file_name()
+                    .is_some_and(|name| name == "Unnumbered Movie clip.mp4")
+            }) {
+                self.set_media_marker(index, Some(engine::MediaKind::Episode));
+            }
+            ctx.request_repaint_after(Duration::from_millis(100));
+            return;
+        }
+        if smoke.stage == 19 {
+            if smoke.snapshots < 8 && smoke.last.elapsed() < Duration::from_secs(3) {
+                ctx.request_repaint_after(Duration::from_millis(100));
+                return;
+            }
+            let report = serde_json::json!({"language":"Rust","files":self.rows.len(),"screenshots":smoke.snapshots,"frames":self.frames,"max_visible_rows":self.max_visible_rows,"idle_repaints_1_8_seconds":smoke.idle_frames.unwrap_or(self.frames-smoke.idle_start),"mean_ui_work_ms":self.ui_micros as f64/self.frames.max(1)as f64/1000.,"window":"Anemorph","maximized_restore_verified":smoke.native_restore_verified});
             let _ = std::fs::write(
                 dir.join("smoke.json"),
                 serde_json::to_vec_pretty(&report).unwrap(),
@@ -577,6 +1036,11 @@ impl App {
                     let _ =
                         std::fs::write(fixtures.join(format!("Show S02E{i:03}.mkv")), b"fixture");
                 }
+                let _ = std::fs::write(
+                    fixtures.join("[Group] Anemorph Movie [1080p].MOV"),
+                    b"movie fixture",
+                );
+                let _ = std::fs::write(fixtures.join("Unnumbered Movie clip.mp4"), b"fixture");
                 self.open(fixtures, true, ctx)
             }
             1 => {
@@ -592,6 +1056,8 @@ impl App {
             4 => self.navigate(Page::Configuration, ctx),
             5 => ctx.send_viewport_cmd(ViewportCommand::Screenshot(egui::UserData::default())),
             6 => {
+                self.settings.auto_detect = false;
+                self.rebuild();
                 self.navigate(Page::Home, ctx);
                 ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::new(480., 360.)));
             }
@@ -630,6 +1096,7 @@ impl App {
                     context.request_repaint();
                 });
             }
+            18 => ctx.send_viewport_cmd(ViewportCommand::Screenshot(egui::UserData::default())),
             _ => {}
         }
         if let Some(s) = &mut self.smoke {
@@ -645,6 +1112,9 @@ impl eframe::App for App {
         let measured = self.smoke.is_some().then(Instant::now);
         self.frames += 1;
         self.poll(ctx);
+        if self.integration.pending {
+            self.integration.poll(None, ctx);
+        }
         if self.folder_due.is_some_and(|due| Instant::now() >= due) {
             self.load_typed_folder(ctx);
         }
@@ -657,16 +1127,7 @@ impl eframe::App for App {
         let base = ctx.input(|i| i.content_rect().size()) * ctx.zoom_factor();
         self.settings.window_width = base.x;
         self.settings.window_height = base.y;
-        let fit = (base.x / 480.)
-            .min(
-                base.y
-                    / if self.settings.auto_detect {
-                        485.
-                    } else {
-                        555.
-                    },
-            )
-            .max(0.5);
+        let fit = (base.x / 480.).min(base.y / 485.).max(0.5);
         let zoom = (self.settings.zoom_percent as f32 / 100.).min(fit);
         if (zoom - self.effective_zoom).abs() > 0.005 {
             self.effective_zoom = zoom;
@@ -683,7 +1144,12 @@ impl eframe::App for App {
         }
         let editing_name =
             ctx.memory(|m| m.has_focus(Id::new("folder")) || m.has_focus(Id::new("series")));
-        if self.page == Page::Home && self.table_focus && !editing_name && !self.about_open {
+        if self.page == Page::Home
+            && self.table_focus
+            && !editing_name
+            && !self.about_open
+            && self.episode_dialog.is_none()
+        {
             if ctx.input_mut(|i| i.consume_key(Modifiers::CTRL, egui::Key::A)) {
                 self.counts.set(None);
                 for r in &mut self.rows {
@@ -697,7 +1163,7 @@ impl eframe::App for App {
         let p = self.palette();
         egui::TopBottomPanel::top("navigation")
             .exact_height(52_f32.max(46. / ctx.zoom_factor()))
-            .frame(egui::Frame::NONE.fill(p.bg))
+            .frame(egui::Frame::NONE.fill(p.title_bar))
             .show(ctx, |ui| self.nav(ui));
         if self.page == Page::Home {
             egui::TopBottomPanel::bottom("footer")
@@ -751,6 +1217,7 @@ impl eframe::App for App {
             self.resize(ctx);
         }
         self.about_dialog(ctx);
+        self.episode_marker_dialog(ctx);
         self.smoke_tick(ctx);
         if let Some(start) = measured {
             self.ui_micros += start.elapsed().as_micros();

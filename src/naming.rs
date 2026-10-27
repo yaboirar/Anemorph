@@ -1,6 +1,71 @@
 //! Compile the user's episode format once, then reuse it for each file.
 pub const DEFAULT_FORMAT: &str = "[Num][S][SeaNum][E][EpsNum]";
 
+pub const DEFAULT_MOVIE_FORMAT: &str = "[Movie Name] Movie";
+
+#[derive(Debug)]
+enum MoviePart {
+    Text(String),
+    Name,
+}
+#[derive(Debug)]
+pub struct MovieFormat {
+    parts: Vec<MoviePart>,
+}
+impl MovieFormat {
+    pub fn parse(pattern: &str) -> Result<Self, String> {
+        if pattern.len() > 512 {
+            return Err("Keep the format under 512 characters.".into());
+        }
+        if pattern
+            .chars()
+            .any(|c| c < ' ' || "<>:\"/\\|?*".contains(c))
+        {
+            return Err("The format contains a character Windows cannot use in a filename.".into());
+        }
+        let mut parts = Vec::new();
+        let mut remaining = pattern;
+        let mut has_name = false;
+        while !remaining.is_empty() {
+            if let Some(tail) = remaining.strip_prefix('[') {
+                let end = tail.find(']').ok_or("Close each token with ].")?;
+                match &tail[..end] {
+                    "Movie Name" => {
+                        parts.push(MoviePart::Name);
+                        has_name = true;
+                    }
+                    "Movie" => parts.push(MoviePart::Text("Movie".into())),
+                    "Space" => parts.push(MoviePart::Text(" ".into())),
+                    token => return Err(format!("Unknown movie token [{token}].")),
+                }
+                remaining = &tail[end + 1..];
+            } else {
+                let end = remaining.find('[').unwrap_or(remaining.len());
+                let text = &remaining[..end];
+                if text.contains(']') {
+                    return Err("Open each token with [.".into());
+                }
+                parts.push(MoviePart::Text(text.into()));
+                remaining = &remaining[end..];
+            }
+        }
+        if !has_name {
+            return Err("Include [Movie Name] so each movie keeps its title.".into());
+        }
+        Ok(Self { parts })
+    }
+    pub fn render(&self, name: &str) -> String {
+        let mut output = String::new();
+        for part in &self.parts {
+            match part {
+                MoviePart::Name => output.push_str(name),
+                MoviePart::Text(text) => output.push_str(text),
+            }
+        }
+        output.trim().to_owned()
+    }
+}
+
 /// Preserve filenames from saved formats created before explicit number tokens.
 /// Old tokens are accepted here only for migration, never by the format editor.
 pub fn migrate_legacy(pattern: &str) -> String {
@@ -260,6 +325,41 @@ mod tests {
             "[Num][EpsNum][FixEps]",
         ] {
             assert!(Format::parse(pattern).is_err(), "{pattern}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod movie_tests {
+    use super::*;
+    #[test]
+    fn movie_tokens_and_windows_filename_validation() {
+        assert_eq!(
+            MovieFormat::parse(DEFAULT_MOVIE_FORMAT)
+                .unwrap()
+                .render("Example"),
+            "Example Movie"
+        );
+        assert_eq!(
+            MovieFormat::parse("[Movie Name]")
+                .unwrap()
+                .render("Example"),
+            "Example"
+        );
+        assert_eq!(
+            MovieFormat::parse("[Movie][Space]-[Space][Movie Name]")
+                .unwrap()
+                .render("Example"),
+            "Movie - Example"
+        );
+        for invalid in [
+            "[Movie]",
+            "[Movie Name",
+            "[Movie Name]/[Movie]",
+            "[EpsNum]",
+            "[Movie Name]?",
+        ] {
+            assert!(MovieFormat::parse(invalid).is_err(), "{invalid}");
         }
     }
 }

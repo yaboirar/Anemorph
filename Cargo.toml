@@ -1,9 +1,9 @@
 [package]
 name = "anemorph"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2024"
 build = "build.rs"
-description = "A native Windows episode renamer with previews, custom formats, and undo"
+description = "A native Windows video file renamer with previews, custom formats, and undo"
 license = "MIT"
 readme = "README.md"
 publish = false
@@ -17,7 +17,7 @@ serde_json = "1"
 walkdir = "2"
 rfd = "0.15"
 image = { version = "0.25", default-features = false, features = ["png"] }
-windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem", "Win32_System_Threading", "Win32_Foundation", "Win32_Graphics_Dwm", "Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem", "Win32_System_Threading", "Win32_System_Registry", "Win32_Foundation", "Win32_Graphics_Dwm", "Win32_UI_WindowsAndMessaging", "Win32_UI_Shell"] }
 raw-window-handle = "0.6"
 
 [build-dependencies]
@@ -28,3 +28,7 @@ opt-level = 3
 lto = "thin"
 strip = true
 codegen-units = 1
+
+[workspace]
+members = ["shell", "maintenance"]
+resolver = "2"

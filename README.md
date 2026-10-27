@@ -1,107 +1,60 @@
-# Anemorph - Anime and TV Episode Batch Renamer
+# Anemorph
 
-**Version 0.0.1** · Windows · Rust
+A free, open-source batch renamer for anime, TV episodes, and movies on Windows. Turn release filenames into a consistent library, with a preview before anything changes.
 
-Anemorph is a free, open-source bulk file renamer for anime and TV episodes on Windows. Batch rename MKV, MP4, AVI, M4V, and WebM files with automatic season and episode detection, custom filename formats, and a preview before applying changes.
+[Download v0.0.2](https://github.com/yaboirar/Anemorph/releases/tag/v0.0.2) · [User guide](docs/usage.md) · [Changelog](CHANGELOG.md)
 
-```text
-[Group] My Show - 09 [1080p].mkv
-                  ↓
-My Show S01E09.mkv
-```
+| Before | After |
+| :--- | :--- |
+| `[Group] Anemorph - 09 [1080p].mkv` | `Anemorph S01E09.mkv` |
+| `[Group] Anemorph Movie [1080p].mp4` | `Anemorph Movie.mp4` |
 
-## What you can do
+## Built for your library
 
-- Detect season and episode numbers from filenames and season folders.
-- Create your own episode naming format, or use manual numbering.
-- Filter MKV, MP4, AVI, M4V, and WebM files, including subfolders.
-- Choose individual files or whole ranges and compare original and proposed names.
-- Use dark/light themes, your own highlight color, and interface zoom.
-- Undo a batch, with collision checks and recovery support for interrupted operations.
+- **Keep the right episode numbers.** Detect seasons and episodes without closing gaps or renumbering recognized files.
+- **Define your own filenames.** Customize episode and movie formats together, with readable tokens and live examples.
+- **Handle episodes and movies in one batch.** Detect movie markers automatically, or classify files from the right-click menu.
+- **Review before renaming.** Compare names side by side, resize columns, select ranges, and see conflicts or unchanged files.
+- **Start from File Explorer.** Send selected videos straight to Anemorph through **Rename with Anemorph**.
+- **Undo the last batch.** Restore previous names, with checks for files that changed after renaming.
 
-Anemorph changes filenames only. It does not convert videos, modify their contents, or fetch episode titles online. The app works locally without an account.
+Anemorph works locally without an account. It changes filenames only; it does not convert or modify video contents.
 
-## Getting started
+## Get started
 
-1. Open `Anemorph.exe` from a Windows release build. No installer or .NET runtime is required.
-2. Paste a folder path, click **Browse**, or drop a folder into the window.
-3. Check the suggested series name. You can edit it or use its refresh icon to restore a suggestion.
-4. Review the **New filename** column and choose the files you want to rename.
-5. Click **Rename**. **Undo last batch** restores the most recent batch when the files are still unchanged.
+1. Download **Anemorph-Setup-0.0.2.exe** from the [release page](https://github.com/yaboirar/Anemorph/releases/tag/v0.0.2), or choose the portable ZIP.
+2. Choose a folder, paste its path, or drop it into Anemorph.
+3. Check the series name and proposed filenames, then select your files.
+4. Click **Rename**.
 
-The small version label sits beneath Anemorph in the upper-left corner. Click the app name to open About.
+The installer lets you choose a destination and includes repair, uninstall, and Explorer integration. No .NET runtime is needed. The portable build works without installation; Explorer integration requires setup.
 
-**Home** is for browsing and renaming. **Settings** contains appearance, highlight color, and zoom. **Configuration** contains naming rules, detection, and folder options. The filter icon on Home offers the same container filters without leaving your files.
+On Windows 11, the Explorer command is available under **Show more options**. To enable it on the first menu, open **Settings > Integration**. Windows may request administrator approval to trust the included development signing certificate. Cancelling keeps the classic menu available. The installer itself is unsigned.
 
-For selection, use Shift-click for a range, Ctrl-click for individual rows, Ctrl+A to highlight all rows, or Space to include/exclude highlighted rows. The header checkbox controls all ready files; **Unselect all** clears the selection.
+## Choose your format
 
-## Your own filename format
+Open **Configuration > Filename format**. Episode and movie formats share one panel and an **Apply** action.
 
-Open **Configuration → Episode format**, edit the format, check the example, then click **Apply**. Anemorph adds the series name and original extension for you.
+| Format | Preview |
+| :--- | :--- |
+| `[Num][S][SeaNum][E][EpsNum]` | `Anemorph S01E09.mkv` |
+| `[FixNum][S][SeaNum][Space][E][EpsNum]` | `Anemorph S1 E9.mkv` |
+| `[Movie Name] Movie` | `Anemorph Movie.mkv` |
 
-| Token | Meaning |
-| --- | --- |
-| `[S]`, `[Season]` | Literal `S` or `Season` |
-| `[E]`, `[Episode]` | Literal `E` or `Episode` |
-| `[SeaNum]` | Season number |
-| `[EpsNum]` | Episode number |
-| `[Num]` | Use at least two digits for following number tokens: `01`, `09` |
-| `[FixNum]` | Use numbers without leading zeros: `1`, `9` |
-| `[Space]` | Insert one space |
+For episodes, Anemorph adds the series name and preserves the original extension. Movies use their cleaned filename title. See the [token reference and naming guide](docs/usage.md#your-own-filename-format) for the full options.
 
-Choose `[Num]` or `[FixNum]` before inserting numbers. That choice stays active until you change it. Plain text and punctuation are kept.
+## Supported videos
 
-| Format | Example output |
-| --- | --- |
-| `[Num][S][SeaNum][E][EpsNum]` | `My Show S01E09.mkv` |
-| `[FixNum][S][SeaNum][Space][E][EpsNum]` | `My Show S1 E9.mkv` |
-| `[Num][Episode][Space][EpsNum]` | `My Show Episode 09.mkv` |
+MKV, MP4, MOV, AVI, WebM, M4V, WMV, FLV, MPG, MPEG, MPE, M2V, TS, MTS, M2TS, VOB, OGV, OGM, 3GP, 3G2, ASF, DIVX, F4V, MXF, RM, and RMVB.
 
-## A few useful details
+Select any combination in Home's filter menu. No active filter shows every supported container. Configuration controls which choices appear in that menu.
 
-Preview first, especially when filenames are unusual. If a season cannot be detected, Anemorph uses the fallback season in Configuration. Ambiguous files and filename conflicts are flagged for review.
+## More
 
-Undo history survives closing the app. New batches record file identity, size, and modification time, so Undo stops if a file was replaced or changed. An interrupted batch can be recovered through Undo before starting another batch. Keep your own backups for important files; recovery cannot guarantee protection from storage failure or outside changes during a batch.
+- [Using Anemorph](docs/usage.md): selection, media markers, filters, undo, and installation.
+- [Building from source](docs/building.md): Rust workspace, installer, and Windows integration.
+- [Contributing](CONTRIBUTING.md): bug reports, ideas, and code changes.
 
-Settings and undo history are stored in `%LOCALAPPDATA%\EpisodeRenamer`. That folder name is retained for compatibility with earlier builds. The files contain local paths, so avoid uploading them in bug reports. Remembering the last folder is optional.
+Created by [@yaboirar](https://github.com/yaboirar). Written in Rust.
 
-The interface uses Arial Bold from Windows for the app name, with a fallback if unavailable. No proprietary font file is bundled. Rounded window corners depend on Windows support.
-
-## Build from source
-
-You need Windows, a stable Rust toolchain supporting edition 2024, and its Windows linker/build tools. This project has been tested with Rust 1.99.1 and the `x86_64-pc-windows-gnu` toolchain. An MSVC toolchain requires the corresponding Visual Studio C++ build tools for linking.
-
-From the project folder:
-
-```powershell
-cargo build --release --locked
-```
-
-Your executable will be at `target/release/anemorph.exe`.
-
-```powershell
-cargo fmt --check
-cargo clippy --locked -- -D warnings
-cargo test --locked
-```
-
-For an isolated UI smoke test or performance benchmark, use a **dedicated scratch directory**. These commands generate their own fixture files and reports:
-
-```powershell
-target\release\anemorph.exe --smoke-test C:\Temp\Anemorph-smoke
-target\release\anemorph.exe --benchmark C:\Temp\Anemorph-benchmark
-```
-
-The table renders visible rows only. File scanning, renaming, and large previews run on worker threads; repeated preview edits are coalesced. The interface sleeps when idle and keeps animations short.
-
-## Contributing
-
-Bug reports, ideas, and focused pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for what to include and how to check your changes. Please use invented example filenames instead of uploading videos or personal paths.
-
-Release notes live in [CHANGELOG.md](CHANGELOG.md). The version in `Cargo.toml` also supplies the GUI label, About version, and Windows executable metadata.
-
-## License and artwork
-
-Anemorph's source code and documentation are available under the [MIT license](LICENSE). In plain language, you can use, modify, and share the code, including commercially, while keeping its license notice.
-
-The supplied Anemo logo is **excluded from MIT**. No redistribution permission or open-source license has been established for that artwork; the code license does not grant rights to use or redistribute it. The original logo is retained at the maintainer’s request. Third-party dependency licenses also remain in effect. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [DEPENDENCY_LICENSES.md](DEPENDENCY_LICENSES.md).
+Source code is licensed under [MIT](LICENSE). The supplied Anemo artwork is excluded from MIT; see [third-party notices](THIRD_PARTY_NOTICES.md) and [dependency licenses](DEPENDENCY_LICENSES.md).

@@ -1,0 +1,33 @@
+#[cfg(test)]
+pub const OTHER_VIDEO_EXTENSIONS: &[&str] = &[
+    "avi", "m4v", "webm", "mov", "wmv", "flv", "mpg", "mpeg", "mpe", "m2v", "ts", "mts", "m2ts",
+    "vob", "ogv", "ogm", "3gp", "3g2", "asf", "divx", "f4v", "mxf", "rm", "rmvb",
+];
+pub const VIDEO_CONTAINERS: &[(&str, &str)] = &[
+    ("mkv", "MKV"),
+    ("mp4", "MP4"),
+    ("mov", "MOV"),
+    ("avi", "AVI"),
+    ("webm", "WebM"),
+    ("m4v", "M4V"),
+    ("wmv", "WMV"),
+    ("flv", "FLV"),
+    ("mpg", "MPG"),
+    ("mpeg", "MPEG"),
+    ("mpe", "MPE"),
+    ("m2v", "M2V"),
+    ("ts", "TS"),
+    ("mts", "MTS"),
+    ("m2ts", "M2TS"),
+    ("vob", "VOB"),
+    ("ogv", "OGV"),
+    ("ogm", "OGM"),
+    ("3gp", "3GP"),
+    ("3g2", "3G2"),
+    ("asf", "ASF"),
+    ("divx", "DIVX"),
+    ("f4v", "F4V"),
+    ("mxf", "MXF"),
+    ("rm", "RM"),
+    ("rmvb", "RMVB"),
+];

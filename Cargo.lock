@@ -72,7 +72,7 @@ checksum = "fc7eb209b1518d6bb87b283c20095f5228ecda460da70b44f0802523dea6da04"
 
 [[package]]
 name = "anemorph"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "eframe",
  "image",
@@ -85,6 +85,24 @@ dependencies = [
  "wgpu",
  "windows-sys 0.61.2",
  "winresource",
+]
+
+[[package]]
+name = "anemorph-maintenance"
+version = "0.0.2"
+dependencies = [
+ "windows",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "anemorph-shell"
+version = "0.0.2"
+dependencies = [
+ "serde",
+ "serde_json",
+ "windows",
+ "windows-core",
 ]
 
 [[package]]

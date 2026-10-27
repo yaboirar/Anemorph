@@ -8,3 +8,6 @@
 .idea/
 .DS_Store
 Thumbs.db
+*.pfx
+*.p12
+/signing/

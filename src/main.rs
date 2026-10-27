@@ -1,8 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod containers;
+mod elevation;
 mod engine;
+mod integration;
 mod naming;
 mod perf;
+mod selection;
 mod ui;
+mod uninstall;
 mod window_drag;
 use eframe::egui::{self, Color32, Context, Modifiers};
 use engine::{Change, Row, Settings};
@@ -29,9 +34,14 @@ impl Page {
         }
     }
 }
+enum StartupSelection {
+    Request(PathBuf),
+    Files(Vec<PathBuf>),
+}
 enum Work {
+    Selected(Result<Vec<PathBuf>, String>),
     Scanned(Result<Vec<PathBuf>, String>),
-    Changed(Result<usize, String>, bool),
+    Changed(Result<Vec<Change>, String>, bool),
 }
 struct Smoke {
     dir: PathBuf,
@@ -39,7 +49,20 @@ struct Smoke {
     last: Instant,
     snapshots: usize,
     idle_start: u64,
+    idle_frames: Option<u64>,
     native_restore_verified: bool,
+}
+struct EpisodeEntry {
+    path: PathBuf,
+    numbering: Option<(u32, u32)>,
+}
+struct EpisodeMarkDialog {
+    entries: Vec<EpisodeEntry>,
+    unknown_count: usize,
+    season: u32,
+    first_episode: u32,
+    format: naming::Format,
+    error: Option<String>,
 }
 struct App {
     settings: Settings,
@@ -48,10 +71,21 @@ struct App {
     series: String,
     series_suggested: bool,
     format_draft: String,
+    movie_format_draft: String,
+    movie_format_cache: Option<(String, Result<naming::MovieFormat, String>)>,
     format_cache: Option<(String, Result<naming::Format, String>)>,
     about_open: bool,
+    uninstaller: Option<PathBuf>,
+    uninstall_error: String,
+    integration: integration::Integration,
+    episode_dialog: Option<EpisodeMarkDialog>,
     native_window: Option<usize>,
     files: Arc<Vec<PathBuf>>,
+    selected_files: Option<Arc<Vec<PathBuf>>>,
+    media_markers: Arc<engine::MediaMarkers>,
+    keep_selection: bool,
+    completed: std::collections::HashSet<PathBuf>,
+    container_anchor: Option<(usize, bool)>,
     preview: Option<mpsc::Receiver<Result<Vec<Row>, String>>>,
     preview_again: bool,
     context: Context,
@@ -63,6 +97,7 @@ struct App {
     status: String,
     error: bool,
     busy: bool,
+    rescan_pending: bool,
     receiver: Option<mpsc::Receiver<Work>>,
     page: Page,
     transition: Instant,
@@ -76,6 +111,7 @@ struct App {
     anchor: Option<usize>,
     check_anchor: Option<(usize, bool)>,
     table_focus: bool,
+    column_drag: Option<(usize, f32)>,
     draft_color: Color32,
     picker_hue: f32,
     hex: String,
@@ -126,7 +162,15 @@ fn on_color(c: Color32) -> Color32 {
     }
 }
 impl App {
+    #[cfg(test)]
     fn new(cc: &eframe::CreationContext<'_>, smoke: Option<PathBuf>) -> Self {
+        Self::initialize(cc, smoke, true)
+    }
+    fn initialize(
+        cc: &eframe::CreationContext<'_>,
+        smoke: Option<PathBuf>,
+        restore_folder: bool,
+    ) -> Self {
         round_window_corners(cc);
         use raw_window_handle::{HasWindowHandle, RawWindowHandle};
         let native_window = cc.window_handle().ok().and_then(|h| match h.as_raw() {
@@ -178,17 +222,33 @@ impl App {
             None
         };
         let format_draft = settings.number_format.clone();
+        let movie_format_draft = settings.movie_format.clone();
         let mut app = Self {
             settings,
             data: data.clone(),
             folder: String::new(),
             series: String::new(),
             series_suggested: false,
+            movie_format_draft,
+            movie_format_cache: None,
             format_draft,
             format_cache: None,
             about_open: false,
+            uninstaller: if smoke.is_none() {
+                uninstall::installed()
+            } else {
+                None
+            },
+            uninstall_error: String::new(),
+            integration: integration::Integration::default(),
+            episode_dialog: None,
             native_window,
             files: Arc::new(vec![]),
+            selected_files: None,
+            media_markers: Arc::new(engine::load_media_markers(&data.join("media-markers.json"))),
+            keep_selection: false,
+            completed: std::collections::HashSet::new(),
+            container_anchor: None,
             preview: None,
             preview_again: false,
             context: cc.egui_ctx.clone(),
@@ -201,6 +261,7 @@ impl App {
             status: "Choose a folder to begin.".into(),
             error: false,
             busy: false,
+            rescan_pending: false,
             receiver: None,
             page: Page::Home,
             transition: Instant::now() - Duration::from_secs(1),
@@ -214,6 +275,7 @@ impl App {
             anchor: None,
             check_anchor: None,
             table_focus: false,
+            column_drag: None,
             draft_color: color,
             picker_hue: egui::ecolor::Hsva::from(color).h,
             hex: hex(color),
@@ -226,6 +288,7 @@ impl App {
                 last: Instant::now(),
                 snapshots: 0,
                 idle_start: 0,
+                idle_frames: None,
                 native_restore_verified: false,
             }),
             frames: 0,
@@ -233,7 +296,7 @@ impl App {
             max_visible_rows: 0,
         };
         app.theme(&cc.egui_ctx);
-        if let Some(p) = startup.filter(|p| p.is_dir()) {
+        if let Some(p) = startup.filter(|p| restore_folder && p.is_dir()) {
             app.open(p, true, &cc.egui_ctx)
         }
         app
@@ -250,14 +313,24 @@ impl App {
     fn open(&mut self, root: PathBuf, infer: bool, ctx: &Context) {
         self.folder_due = None;
         if self.busy {
+            if !infer && self.root.as_ref() == Some(&root) {
+                self.rescan_pending = true;
+            }
             return;
         }
+        self.rescan_pending = false;
         if !root.is_dir() {
             self.status = "Choose an existing folder first.".into();
             self.error = true;
             return;
         }
         self.folder = root.to_string_lossy().into();
+        if infer || self.root.as_ref() != Some(&root) {
+            self.selected_files = None;
+        }
+        if self.root.as_ref() != Some(&root) {
+            self.completed.clear();
+        }
         if self.settings.auto_name && (infer || self.series.is_empty()) {
             self.series = engine::guess_name(&root);
             self.series_suggested = true;
@@ -268,6 +341,7 @@ impl App {
             self.save_settings()
         }
         let settings = self.settings.clone();
+        let selected = self.selected_files.clone();
         let (tx, rx) = mpsc::channel();
         let context = ctx.clone();
         self.receiver = Some(rx);
@@ -275,7 +349,21 @@ impl App {
         self.status = "Reading video files…".into();
         self.error = false;
         std::thread::spawn(move || {
-            let _ = tx.send(Work::Scanned(engine::scan(&root, &settings)));
+            let result = if let Some(selected) = selected {
+                Ok(selected
+                    .iter()
+                    .filter(|p| {
+                        p.is_file()
+                            && p.extension().and_then(|e| e.to_str()).is_some_and(|ext| {
+                                settings.container_enabled(&ext.to_ascii_lowercase())
+                            })
+                    })
+                    .cloned()
+                    .collect())
+            } else {
+                engine::scan(&root, &settings)
+            };
+            let _ = tx.send(Work::Scanned(result));
             context.request_repaint();
         });
     }
@@ -289,7 +377,40 @@ impl App {
         }
         self.open(PathBuf::from(path), true, ctx);
     }
+    fn request_selection(&mut self, selection: StartupSelection, ctx: &Context) {
+        let (tx, rx) = mpsc::channel();
+        let context = ctx.clone();
+        self.receiver = Some(rx);
+        self.busy = true;
+        self.status = "Loading selected videos...".into();
+        std::thread::spawn(move || {
+            let result = match selection {
+                StartupSelection::Request(path) => {
+                    selection::read_request(&path, &selection::directory())
+                }
+                StartupSelection::Files(files) => selection::validate(files),
+            };
+            let _ = tx.send(Work::Selected(result));
+            context.request_repaint();
+        });
+    }
+    fn open_selection(&mut self, files: Vec<PathBuf>, ctx: &Context) {
+        let Some(root) = selection::common_folder(&files) else {
+            self.status = "Select video files from the same drive.".into();
+            self.error = true;
+            return;
+        };
+        if self.settings.auto_name {
+            self.series = engine::guess_name(&root);
+            self.series_suggested = true;
+        }
+        self.settings.filter_extensions.clear();
+        self.root = Some(root.clone());
+        self.selected_files = Some(Arc::new(files));
+        self.open(root, false, ctx);
+    }
     fn folder_edited(&mut self, ctx: &Context) {
+        self.selected_files = None;
         self.counts.set(None);
         self.root = None;
         self.rows = Vec::new();
@@ -355,21 +476,55 @@ impl App {
             let settings = self.settings.clone();
             let files = Arc::clone(&self.files);
             let context = self.context.clone();
+            let markers = Arc::clone(&self.media_markers);
             self.preview = Some(rx);
             std::thread::spawn(move || {
-                let _ = tx.send(engine::plan(&root, &name, &files, &settings));
+                let _ = tx.send(engine::plan_with_markers(
+                    &root, &name, &files, &settings, &markers,
+                ));
                 context.request_repaint();
             });
             return;
         }
-        let result = engine::plan(root, &self.series, &self.files, &self.settings);
+        let result = engine::plan_with_markers(
+            root,
+            &self.series,
+            &self.files,
+            &self.settings,
+            &self.media_markers,
+        );
         self.install_preview(result);
     }
     fn install_preview(&mut self, result: Result<Vec<Row>, String>) {
         self.counts.set(None);
         let Some(root) = &self.root else { return };
         match result {
-            Ok(rows) => {
+            Ok(mut rows) => {
+                for row in &mut rows {
+                    if row.status == "No change"
+                        && self
+                            .completed
+                            .contains(&engine::media_marker_key(&row.source))
+                    {
+                        row.status = "Done".into();
+                    }
+                }
+                if std::mem::take(&mut self.keep_selection) {
+                    let previous: std::collections::HashMap<_, _> = self
+                        .rows
+                        .iter()
+                        .map(|r| (&r.source, (r.included, r.highlighted, r.ready)))
+                        .collect();
+                    for row in &mut rows {
+                        if let Some((included, highlighted, was_ready)) = previous.get(&row.source)
+                        {
+                            row.highlighted = *highlighted;
+                            if *was_ready {
+                                row.included = *included && row.ready;
+                            }
+                        }
+                    }
+                }
                 self.rows = rows;
                 self.dirty = false;
                 self.anchor = None;
@@ -406,6 +561,7 @@ impl App {
                     .files
                     .iter()
                     .map(|source| Row {
+                        kind: engine::marked_media_kind(source, &self.media_markers),
                         source: source.clone(),
                         target: None,
                         original: source
@@ -427,10 +583,140 @@ impl App {
             }
         }
     }
-    fn refresh_series(&mut self) {
-        if self.series.trim().is_empty()
-            && let Some(root) = &self.root
+    fn marker_paths(&self, index: usize) -> Option<Vec<PathBuf>> {
+        if self.busy {
+            return None;
+        }
+        let row = self.rows.get(index)?;
+        Some(if row.highlighted {
+            self.rows
+                .iter()
+                .filter(|r| r.highlighted)
+                .map(|r| r.source.clone())
+                .collect()
+        } else {
+            vec![row.source.clone()]
+        })
+    }
+    fn store_media_markers(&mut self, markers: engine::MediaMarkers) -> Result<(), String> {
+        if markers != *self.media_markers {
+            engine::save_media_markers(&self.data.join("media-markers.json"), &markers)?;
+        }
+        self.media_markers = Arc::new(markers);
+        self.keep_selection = true;
+        self.rebuild();
+        Ok(())
+    }
+    fn set_media_marker(&mut self, index: usize, kind: Option<engine::MediaKind>) {
+        if kind == Some(engine::MediaKind::Episode) {
+            self.request_episode_marker(index);
+            return;
+        }
+        let Some(paths) = self.marker_paths(index) else {
+            return;
+        };
+        let mut markers = (*self.media_markers).clone();
+        for path in paths {
+            if let Some(kind) = kind {
+                let key = engine::media_marker_key(&path);
+                let mut marker = markers.get(&key).copied().unwrap_or_else(|| kind.into());
+                marker.kind = kind;
+                markers.insert(key, marker);
+            } else {
+                markers.remove(&engine::media_marker_key(&path));
+            }
+        }
+        if let Err(error) = self.store_media_markers(markers) {
+            self.status = format!("Could not save media marker: {error}");
+            self.error = true;
+        }
+    }
+    fn request_episode_marker(&mut self, index: usize) {
+        let Some(paths) = self.marker_paths(index) else {
+            return;
+        };
+        let format = match naming::Format::parse(&self.settings.number_format) {
+            Ok(format) => format,
+            Err(error) => {
+                self.status = error;
+                self.error = true;
+                return;
+            }
+        };
+        let entries: Vec<_> = paths
+            .into_iter()
+            .map(|path| {
+                let numbering = self
+                    .media_markers
+                    .get(&engine::media_marker_key(&path))
+                    .and_then(|m| m.season.zip(m.episode))
+                    .or_else(|| {
+                        engine::recognized_episode(&path, &format, self.settings.default_season)
+                    });
+                EpisodeEntry { path, numbering }
+            })
+            .collect();
+        let unknown_count = entries.iter().filter(|e| e.numbering.is_none()).count();
+        if unknown_count == 0 {
+            let mut markers = (*self.media_markers).clone();
+            for entry in entries {
+                let (season, episode) = entry.numbering.unwrap();
+                markers.insert(
+                    engine::media_marker_key(&entry.path),
+                    engine::MediaOverride::episode(season, episode),
+                );
+            }
+            if let Err(error) = self.store_media_markers(markers) {
+                self.status = format!("Could not save episode marker: {error}");
+                self.error = true;
+            }
+        } else {
+            self.episode_dialog = Some(EpisodeMarkDialog {
+                entries,
+                unknown_count,
+                season: self.settings.default_season,
+                first_episode: self.settings.first_episode,
+                format,
+                error: None,
+            });
+        }
+    }
+    fn apply_episode_marker(&mut self) {
+        let Some(mut dialog) = self.episode_dialog.take() else {
+            return;
+        };
+        let valid_count = u32::try_from(dialog.unknown_count).ok();
+        if valid_count
+            .and_then(|count| dialog.first_episode.checked_add(count.saturating_sub(1)))
+            .is_none()
         {
+            dialog.error = Some("Episode number exceeds the supported range.".into());
+            self.episode_dialog = Some(dialog);
+            return;
+        }
+        let mut markers = (*self.media_markers).clone();
+        let mut assigned = 0_u32;
+        for entry in &dialog.entries {
+            let (season, episode) = if let Some(numbers) = entry.numbering {
+                numbers
+            } else {
+                // The complete range was checked before mutating the draft map.
+                let episode = dialog.first_episode + assigned;
+                assigned += 1;
+                (dialog.season, episode)
+            };
+            markers.insert(
+                engine::media_marker_key(&entry.path),
+                engine::MediaOverride::episode(season, episode),
+            );
+        }
+        if let Err(error) = self.store_media_markers(markers) {
+            dialog.error = Some(error);
+            self.episode_dialog = Some(dialog);
+        }
+    }
+    fn refresh_series(&mut self) {
+        if let Some(root) = &self.root {
             self.series = engine::guess_name(root);
             self.series_suggested = true;
         }
@@ -474,7 +760,19 @@ impl App {
         }) {
             self.receiver = None;
             self.busy = false;
+            if self.rescan_pending && matches!(&result, Work::Scanned(_)) {
+                self.rescan_pending = false;
+                if let Some(root) = self.root.clone() {
+                    self.open(root, false, ctx);
+                    return;
+                }
+            }
             match result {
+                Work::Selected(Ok(files)) => self.open_selection(files, ctx),
+                Work::Selected(Err(error)) => {
+                    self.status = error;
+                    self.error = true;
+                }
                 Work::Scanned(Ok(files)) => {
                     self.files = Arc::new(files);
                     self.preview_again = self.preview.is_some();
@@ -484,7 +782,35 @@ impl App {
                     self.status = e;
                     self.error = true
                 }
-                Work::Changed(Ok(n), undo) => {
+                Work::Changed(Ok(changes), undo) => {
+                    let n = changes.len();
+                    if let Some(files) = &mut self.selected_files {
+                        let moved: std::collections::HashMap<_, _> = changes
+                            .iter()
+                            .map(|c| (engine::media_marker_key(&c.source), c.target.clone()))
+                            .collect();
+                        for path in Arc::make_mut(files) {
+                            if let Some(target) = moved.get(&engine::media_marker_key(path)) {
+                                *path = target.clone();
+                            }
+                        }
+                    }
+                    self.completed.clear();
+                    if !undo {
+                        self.completed.extend(
+                            changes
+                                .iter()
+                                .map(|change| engine::media_marker_key(&change.target)),
+                        );
+                    }
+                    let mut markers = (*self.media_markers).clone();
+                    engine::move_media_markers(&mut markers, &changes);
+                    let marker_save = if markers != *self.media_markers {
+                        engine::save_media_markers(&self.data.join("media-markers.json"), &markers)
+                    } else {
+                        Ok(())
+                    };
+                    self.media_markers = Arc::new(markers);
                     self.undo_check = Instant::now() - Duration::from_secs(3);
                     self.undo_available = !undo;
                     let message = if undo {
@@ -495,7 +821,11 @@ impl App {
                     if let Some(root) = self.root.clone() {
                         self.open(root, false, ctx)
                     }
-                    self.status = message
+                    self.status = message;
+                    if let Err(error) = marker_save {
+                        self.status += &format!(" Could not save media markers: {error}");
+                        self.error = true;
+                    }
                 }
                 Work::Changed(Err(e), _) => {
                     self.undo_available = self.data.join("native-last-batch.json").is_file()
@@ -537,9 +867,9 @@ impl App {
         .into();
         std::thread::spawn(move || {
             let result = if undo {
-                engine::undo(&history)
+                engine::undo_with_changes(&history)
             } else {
-                engine::rename_batch(&changes, &history)
+                engine::rename_batch(&changes, &history).map(|_| changes)
             };
             let _ = tx.send(Work::Changed(result, undo));
             context.request_repaint();
@@ -664,6 +994,17 @@ fn main() -> eframe::Result {
         .as_ref()
         .map(|p| p.join("settings"))
         .unwrap_or_else(engine::data_dir);
+    let selection = if args.get(1).is_some_and(|s| s == "--selection") {
+        Some(StartupSelection::Request(
+            args.get(2).map(PathBuf::from).unwrap_or_default(),
+        ))
+    } else if args.get(1).is_some_and(|s| s == "--files") {
+        Some(StartupSelection::Files(
+            args.iter().skip(2).map(PathBuf::from).collect(),
+        ))
+    } else {
+        None
+    };
     let settings = Settings::load(&data.join("settings.json"));
     let icon = eframe::icon_data::from_png_bytes(include_bytes!("../assets/icon.png"))
         .expect("Embedded icon");
@@ -695,7 +1036,13 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "Anemorph",
         options,
-        Box::new(move |cc| Ok(Box::new(App::new(cc, smoke)))),
+        Box::new(move |cc| {
+            let mut app = App::initialize(cc, smoke, selection.is_none());
+            if let Some(selection) = selection {
+                app.request_selection(selection, &cc.egui_ctx);
+            }
+            Ok(Box::new(app))
+        }),
     )
 }
 
@@ -743,6 +1090,97 @@ mod tests {
         assert!(a.rows.is_empty() && a.root.is_none());
     }
     #[test]
+    fn marking_movie_preserves_excluded_rows_and_updates_preview() {
+        let mut a = app();
+        let root = std::env::temp_dir().join(format!("anemorph-marker-ui-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        a.data = root.join("data");
+        a.media_markers = Arc::new(engine::MediaMarkers::new());
+        a.root = Some(root.clone());
+        a.series = "Show".into();
+        a.files = Arc::new(vec![
+            root.join("Mugen Train (2020) [1080p].mp4"),
+            root.join("Original S01E19.mp4"),
+        ]);
+        a.rebuild();
+        assert!(!a.rows[0].ready);
+        a.rows[1].included = false;
+        a.set_media_marker(0, Some(engine::MediaKind::Movie));
+        assert_eq!(a.rows[0].kind, engine::MediaKind::Movie);
+        assert_eq!(a.rows[0].output, "Mugen Train (2020) Movie.mp4");
+        assert!(!a.rows[1].included);
+        a.rebuild();
+        assert_eq!(a.rows[0].kind, engine::MediaKind::Movie);
+        a.set_media_marker(0, None);
+        assert!(!a.rows[0].ready && a.rows[0].target.is_none());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn marking_numbered_movie_as_episode_keeps_existing_numbers() {
+        let mut a = app();
+        let root =
+            std::env::temp_dir().join(format!("anemorph-numbered-episode-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        a.data = root.join("data");
+        a.root = Some(root.clone());
+        a.series = "Show".into();
+        a.settings.auto_detect = false;
+        a.media_markers = Arc::new(engine::MediaMarkers::new());
+        a.files = Arc::new(vec![root.join("Show Movie S03E23.mp4")]);
+        a.rebuild();
+        assert_eq!(a.rows[0].kind, engine::MediaKind::Movie);
+        a.set_media_marker(0, Some(engine::MediaKind::Episode));
+        assert!(a.episode_dialog.is_none());
+        assert_eq!(a.rows[0].kind, engine::MediaKind::Episode);
+        assert_eq!(a.rows[0].output, "Show S03E23.mp4");
+        a.rebuild();
+        assert_eq!(a.rows[0].output, "Show S03E23.mp4");
+        a.set_media_marker(0, Some(engine::MediaKind::Movie));
+        a.set_media_marker(0, Some(engine::MediaKind::Episode));
+        assert!(a.episode_dialog.is_none());
+        assert_eq!(a.rows[0].output, "Show S03E23.mp4");
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn batch_episode_marking_numbers_only_unknown_files_and_cancel_changes_nothing() {
+        let mut a = app();
+        let root =
+            std::env::temp_dir().join(format!("anemorph-batch-episode-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        a.data = root.join("data");
+        a.root = Some(root.clone());
+        a.series = "Show".into();
+        a.settings.auto_detect = false;
+        a.media_markers = Arc::new(engine::MediaMarkers::new());
+        a.files = Arc::new(vec![
+            root.join("Clip alpha.mp4"),
+            root.join("Show S02E19.mp4"),
+            root.join("Clip beta.mp4"),
+        ]);
+        a.rebuild();
+        for row in &mut a.rows {
+            row.highlighted = true;
+        }
+        a.set_media_marker(0, Some(engine::MediaKind::Episode));
+        assert_eq!(a.episode_dialog.as_ref().unwrap().unknown_count, 2);
+        assert!(a.media_markers.is_empty());
+        a.episode_dialog = None;
+        assert!(a.media_markers.is_empty() && !a.rows[0].ready);
+        a.set_media_marker(0, Some(engine::MediaKind::Episode));
+        let dialog = a.episode_dialog.as_mut().unwrap();
+        dialog.season = 2;
+        dialog.first_episode = 7;
+        a.apply_episode_marker();
+        assert!(a.episode_dialog.is_none());
+        assert_eq!(a.rows[0].output, "Show S02E07.mp4");
+        assert_eq!(a.rows[1].output, "Show S02E19.mp4");
+        assert_eq!(a.rows[2].output, "Show S02E08.mp4");
+        assert_eq!(a.rows[1].status, "No change");
+        a.rebuild();
+        assert_eq!(a.rows[2].output, "Show S02E08.mp4");
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
     fn selection_ranges_and_groups() {
         let mut a = app();
         let root = std::env::temp_dir().join("anemorph-selection");
@@ -777,6 +1215,38 @@ mod tests {
         assert!(!a.rows[2].included && !a.rows[4].included && a.rows[3].included);
     }
     #[test]
+    fn rapid_filter_changes_rescan_with_the_latest_choices() {
+        let mut a = app();
+        let root =
+            std::env::temp_dir().join(format!("anemorph-filter-rescan-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let mkv = root.join("Show S01E01.mkv");
+        let mp4 = root.join("Show S01E02.mp4");
+        for path in [&mkv, &mp4] {
+            std::fs::write(path, b"video").unwrap();
+        }
+        a.root = Some(root.clone());
+        a.series = "Show".into();
+        a.busy = true;
+        let (tx, rx) = mpsc::channel();
+        a.receiver = Some(rx);
+        a.settings.toggle_container("mkv");
+        let ctx = a.context.clone();
+        a.open(root.clone(), false, &ctx);
+        a.settings.toggle_container("mp4");
+        a.open(root.clone(), false, &ctx);
+        assert!(a.rescan_pending);
+        tx.send(Work::Scanned(Ok(vec![mkv.clone()]))).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while a.busy && Instant::now() < deadline {
+            a.poll(&ctx);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert!(!a.busy && !a.rescan_pending);
+        assert_eq!(a.files.as_ref(), &vec![mkv, mp4]);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
     fn refresh_preserves_cached_files() {
         let mut a = app();
         let root = std::env::temp_dir().join("anemorph-cached");
@@ -798,7 +1268,93 @@ mod tests {
         assert_eq!(a.rows.len(), 1);
         a.series = "My custom title".into();
         a.refresh_series();
-        assert_eq!(a.rows[0].output, "My custom title S01E13.mkv");
+        assert_eq!(a.series, engine::guess_name(&root));
+        assert!(a.series_suggested);
+        assert_eq!(a.rows[0].output, format!("{} S01E13.mkv", a.series));
+    }
+    #[test]
+    fn completed_rename_stays_done_on_refresh_and_clears_on_undo() {
+        let mut a = app();
+        let root = std::env::temp_dir().join(format!("anemorph-done-ui-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        a.data = root.join("data");
+        a.settings.remember_folder = false;
+        a.root = Some(root.clone());
+        a.series = "Show".into();
+        let source = root.join("Old S01E19.mkv");
+        let unchanged = root.join("Show S01E20.mkv");
+        std::fs::write(&source, b"video").unwrap();
+        std::fs::write(&unchanged, b"video").unwrap();
+        a.files = Arc::new(vec![source.clone(), unchanged]);
+        a.rebuild();
+        let ctx = a.context.clone();
+        a.execute(false, &ctx);
+        let wait = |a: &mut App| {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            while (a.busy || a.preview.is_some()) && Instant::now() < deadline {
+                a.poll(&ctx);
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            assert!(!a.busy && !a.dirty);
+        };
+        wait(&mut a);
+        assert_eq!(a.rows[0].status, "Done");
+        assert!(!a.rows[0].ready && !a.rows[0].included);
+        assert_eq!(a.rows[1].status, "No change");
+        a.open(root.clone(), false, &ctx);
+        wait(&mut a);
+        assert_eq!(a.rows[0].status, "Done");
+        a.execute(true, &ctx);
+        wait(&mut a);
+        assert!(a.completed.is_empty());
+        assert!(source.is_file());
+        assert!(a.rows.iter().all(|r| r.status != "Done"));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn explorer_selection_stays_scoped_through_refresh_rename_and_undo() {
+        let mut a = app();
+        let root = std::env::temp_dir().join(format!("anemorph-scoped-ui-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        a.data = root.join("data");
+        a.settings.remember_folder = false;
+        let selected = root.join("Old S01E19.mkv");
+        let untouched = root.join("Old S01E20.mp4");
+        std::fs::write(&selected, b"selected video").unwrap();
+        std::fs::write(&untouched, b"untouched video").unwrap();
+        let ctx = a.context.clone();
+        a.open_selection(vec![selected.clone()], &ctx);
+        let wait = |a: &mut App| {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            while (a.busy || a.preview.is_some()) && Instant::now() < deadline {
+                a.poll(&ctx);
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            assert!(!a.busy);
+        };
+        wait(&mut a);
+        assert_eq!(a.rows.len(), 1);
+        a.series = "Show".into();
+        a.rebuild();
+        a.execute(false, &ctx);
+        wait(&mut a);
+        assert_eq!(a.rows.len(), 1);
+        assert_eq!(a.rows[0].source, root.join("Show S01E19.mkv"));
+        assert_eq!(a.rows[0].status, "Done");
+        assert!(untouched.is_file());
+        a.open(root.clone(), false, &ctx);
+        wait(&mut a);
+        assert_eq!(a.rows.len(), 1);
+        a.execute(true, &ctx);
+        wait(&mut a);
+        assert_eq!(a.rows[0].source, selected);
+        assert_eq!(a.rows.len(), 1);
+        assert!(untouched.is_file());
+        a.open(root.clone(), true, &ctx);
+        wait(&mut a);
+        assert!(a.selected_files.is_none());
+        assert_eq!(a.rows.len(), 2);
+        std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
     fn hex_and_foreground() {
