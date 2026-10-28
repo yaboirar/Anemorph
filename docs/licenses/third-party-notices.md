@@ -4,7 +4,7 @@
 
 **Which licenses apply to the parts included with Anemorph.**
 
-[Home](README.md) · [Code license](LICENSE) · [Dependency licenses](DEPENDENCY_LICENSES.md)
+[Home](../../README.md) · [Code license](../../LICENSE) · [Dependency licenses](dependency-licenses.md)
 
 </div>
 
@@ -12,10 +12,10 @@
 
 | Part | Where to find its terms |
 | :--- | :--- |
-| Anemorph source code | [MIT license](LICENSE) |
+| Anemorph source code | [MIT license](../../LICENSE) |
 | Supplied Anemo artwork | Separate notice below; redistribution permission is not established |
-| Installer components | [NSIS license notices](installer/NSIS-LICENSE.txt) |
-| Rust dependencies and fallback fonts | [Dependency licenses](DEPENDENCY_LICENSES.md) |
+| Installer components | [NSIS license notices](https://github.com/yaboirar/Anemorph/blob/main/installer/NSIS-LICENSE.txt) |
+| Rust dependencies and fallback fonts | [Dependency licenses](dependency-licenses.md) |
 
 ---
 
@@ -33,8 +33,8 @@ Anemorph requests Arial Bold from the user's Windows installation at runtime. CJ
 
 ## Rust dependencies
 
-Dependencies and bundled fallback fonts retain their upstream licenses. See Cargo.lock for exact dependency versions and each upstream package's license files. The project's MIT license does not replace those licenses. The Windows normal/build dependency notices from this locked build are collected in DEPENDENCY_LICENSES.md; review upstream terms when changing dependencies or distribution targets.
+Dependencies and bundled fallback fonts retain their upstream licenses. See Cargo.lock for exact dependency versions and each upstream package's license files. The project's MIT license does not replace those licenses. The Windows normal/build dependency notices from this locked build are collected in [dependency licenses](dependency-licenses.md); review upstream terms when changing dependencies or distribution targets.
 
 ---
 
-[Back to Anemorph](README.md) · [Contributing assets](CONTRIBUTING.md#licenses-and-assets)
+[Back to Anemorph](../../README.md) · [Contributing assets](../contributing.md#licenses-and-assets)

@@ -4,7 +4,7 @@
 
 **Help make Anemorph better for the people using it.**
 
-[Home](README.md) · [Report a problem](https://github.com/yaboirar/Anemorph/issues) · [Build from source](docs/building.md)
+[Home](../README.md) · [Report a problem](https://github.com/yaboirar/Anemorph/issues) · [Build from source](building.md)
 
 </div>
 
@@ -40,7 +40,7 @@ For filename problems, a before/expected table is useful:
 
 ## Making a change
 
-1. Follow the [build guide](docs/building.md) to set up the project.
+1. Follow the [build guide](building.md) to set up the project.
 2. Keep the change focused on one problem or improvement.
 3. Test with disposable files or generated fixtures. Never use your only copy of a video.
 4. Run the checks below and open a pull request explaining what changes for the user.
@@ -65,6 +65,6 @@ Use everyday language in user-facing pages. Keep the README's existing visual st
 
 ## Licenses and assets
 
-Code contributions use the project's [MIT license](LICENSE). Only add artwork, fonts, or dependencies with clear redistribution terms, and include the required notices.
+Code contributions use the project's [MIT license](../LICENSE). Only add artwork, fonts, or dependencies with clear redistribution terms, and include the required notices.
 
-The supplied Anemo artwork is outside the code license. Read [third-party notices](THIRD_PARTY_NOTICES.md) before reusing or changing project assets.
+The supplied Anemo artwork is outside the code license. Read [third-party notices](licenses/third-party-notices.md) before reusing or changing project assets.

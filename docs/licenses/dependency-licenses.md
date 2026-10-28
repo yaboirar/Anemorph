@@ -4,7 +4,7 @@
 
 **Original license texts for the dependencies included with Anemorph.**
 
-[Home](README.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Code license](LICENSE)
+[Home](../../README.md) · [Third-party notices](third-party-notices.md) · [Code license](../../LICENSE)
 
 </div>
 

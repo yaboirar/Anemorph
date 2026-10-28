@@ -4,7 +4,7 @@
 
 **Build Anemorph, run its checks, and package a Windows release.**
 
-[Home](../README.md) · [Contributing](../CONTRIBUTING.md) · [Test results](performance.md) · [Signing](signing.md)
+[Home](../README.md) · [Contributing](contributing.md) · [Test results](performance.md) · [Signing](signing.md)
 
 </div>
 
@@ -125,4 +125,4 @@ Smoke settings are isolated inside the output directory. Reports include `graphi
 
 ---
 
-[Contributing](../CONTRIBUTING.md) · [Signing a release](signing.md) · [Back to Anemorph](../README.md)
+[Contributing](contributing.md) · [Signing a release](signing.md) · [Back to Anemorph](../README.md)

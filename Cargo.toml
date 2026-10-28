@@ -2,7 +2,7 @@
 name = "anemorph"
 version = "0.0.3"
 edition = "2024"
-build = "build.rs"
+build = "installer/build.rs"
 description = "A native Windows video file renamer with previews, custom formats, and undo"
 license = "MIT"
 readme = "README.md"

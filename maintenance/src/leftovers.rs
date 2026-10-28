@@ -128,8 +128,27 @@ fn program_leftovers(root: &Path, count: &mut usize) -> Result<(), String> {
     }
     let docs = root.join("docs");
     if fs::symlink_metadata(&docs).is_ok_and(|m| !m.file_type().is_symlink() && m.is_dir()) {
-        for name in ["usage.md", "building.md", "performance.md"] {
+        for name in [
+            "usage.md",
+            "building.md",
+            "performance.md",
+            "signing.md",
+            "contributing.md",
+            "changelog.md",
+        ] {
             remove_file(&docs.join(name), count)?;
+        }
+        let licenses = docs.join("licenses");
+        if fs::symlink_metadata(&licenses).is_ok_and(|m| m.is_dir() && !m.file_type().is_symlink())
+        {
+            for name in ["third-party-notices.md", "dependency-licenses.md"] {
+                remove_file(&licenses.join(name), count)?;
+            }
+            match fs::remove_dir(&licenses) {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::DirectoryNotEmpty => {}
+                Err(e) => return Err(e.to_string()),
+            }
         }
         match fs::remove_dir(&docs) {
             Ok(()) => {}
@@ -310,9 +329,20 @@ mod tests {
         fs::create_dir_all(root.join("docs")).unwrap();
         fs::write(root.join("docs/performance.md"), b"report").unwrap();
         fs::write(root.join("docs/Keep.md"), b"unrelated").unwrap();
+        fs::write(root.join("docs/changelog.md"), b"changelog").unwrap();
+        fs::create_dir_all(root.join("docs/licenses")).unwrap();
+        fs::write(
+            root.join("docs/licenses/dependency-licenses.md"),
+            b"licenses",
+        )
+        .unwrap();
+        fs::write(root.join("docs/licenses/Keep.txt"), b"unrelated").unwrap();
         let mut count = 0;
         program_leftovers(&root, &mut count).unwrap();
-        assert_eq!(count, 5);
+        assert_eq!(count, 7);
+        assert!(!root.join("docs/licenses/dependency-licenses.md").exists());
+        assert!(!root.join("docs/changelog.md").exists());
+        assert!(root.join("docs/licenses/Keep.txt").is_file());
         assert!(root.join("docs/Keep.md").is_file());
         assert!(screenshots.join("Keep.png").is_file());
         assert!(root.join("My video.mkv").is_file());

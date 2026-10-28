@@ -11,7 +11,7 @@ Rename anime episodes, TV shows, and movies in bulk. Preview every change first,
 [![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge)](https://github.com/yaboirar/Anemorph/releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-10b981?style=for-the-badge)](LICENSE)
 
-[**Download the installer**](https://github.com/yaboirar/Anemorph/releases/download/v0.0.3/Anemorph-Setup-0.0.3.exe) · [Portable ZIP](https://github.com/yaboirar/Anemorph/releases/download/v0.0.3/Anemorph-v0.0.3-windows.zip) · [User guide](docs/usage.md) · [Changelog](CHANGELOG.md)
+[**Download the installer**](https://github.com/yaboirar/Anemorph/releases/download/v0.0.3/Anemorph-Setup-0.0.3.exe) · [Portable ZIP](https://github.com/yaboirar/Anemorph/releases/download/v0.0.3/Anemorph-v0.0.3-windows.zip) · [User guide](docs/usage.md) · [Changelog](docs/changelog.md)
 
 <br />
 
@@ -199,10 +199,10 @@ See [test results and limits](docs/performance.md) for measured speed and memory
 
 ## Project
 
-[User guide](docs/usage.md) · [Changelog](CHANGELOG.md) · [Build from source](docs/building.md) · [Contribute](CONTRIBUTING.md) · [Test results and limits](docs/performance.md) · [Report a problem or suggest an idea](https://github.com/yaboirar/Anemorph/issues)
+[User guide](docs/usage.md) · [Changelog](docs/changelog.md) · [Build from source](docs/building.md) · [Contribute](docs/contributing.md) · [Test results and limits](docs/performance.md) · [Report a problem or suggest an idea](https://github.com/yaboirar/Anemorph/issues)
 
 Created by [@yaboirar](https://github.com/yaboirar).
 
 ### License
 
-The source code is licensed under [MIT](LICENSE). The supplied Anemo artwork is excluded from that license; redistribution permission has not been established. See [third-party notices](THIRD_PARTY_NOTICES.md) and [dependency licenses](DEPENDENCY_LICENSES.md).
+The source code is licensed under [MIT](LICENSE). The supplied Anemo artwork is excluded from that license; redistribution permission has not been established. See [third-party notices](docs/licenses/third-party-notices.md) and [dependency licenses](docs/licenses/dependency-licenses.md).

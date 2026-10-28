@@ -4,7 +4,7 @@
 
 **What's changed in Anemorph.**
 
-[Home](README.md) · [Download](https://github.com/yaboirar/Anemorph/releases/latest) · [User guide](docs/usage.md)
+[Home](../README.md) · [Download](https://github.com/yaboirar/Anemorph/releases/latest) · [User guide](usage.md)
 
 </div>
 
@@ -14,6 +14,7 @@
 
 ### Latest 0.0.3 patch
 
+- Group supporting documents under `docs`, license notices under `docs/licenses`, and Windows build files under `installer`.
 - Keep Explorer-imported files checked even when no episode or movie is recognized, including after refreshes. Manual checkmark changes are preserved.
 - Send new Explorer selections to the running Anemorph window instead of opening a second one, including across normal and Windows package launches.
 - Check the handoff between separate processes without desktop control. All 74 automated tests pass; the version remains 0.0.3.
@@ -52,7 +53,7 @@
 - Check large folders, repeated previews, idle memory use, and recovery after interrupted renames.
 - Pass 70 automated tests and add screenshots to the README.
 
-See [test results and known limits](docs/performance.md) for the full measurements and technical details.
+See [test results and known limits](performance.md) for the full measurements and technical details.
 
 ## 0.0.2 - 2026-10-27
 

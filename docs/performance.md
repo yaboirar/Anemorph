@@ -4,7 +4,7 @@
 
 **Measured behavior, with the limits left visible.**
 
-[Home](../README.md) · [Build and reproduce](building.md) · [Changelog](../CHANGELOG.md)
+[Home](../README.md) · [Build and reproduce](building.md) · [Changelog](changelog.md)
 
 </div>
 

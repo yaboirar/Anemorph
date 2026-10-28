@@ -35,7 +35,7 @@ try {
     $containers | ForEach-Object { '!insertmacro RegisterVideo ' + $_ } | Set-Content -LiteralPath $register -Encoding utf8
     $containers | ForEach-Object { '!insertmacro UnregisterVideo ' + $_ } | Set-Content -LiteralPath $unregister -Encoding utf8
     $output = Join-Path $OutputDir "Anemorph-Setup-$version.exe"
-    $kb = [math]::Ceiling(((Get-Item $app).Length + (Get-Item $shell).Length + (Get-Item DEPENDENCY_LICENSES.md).Length) / 1024)
+    $kb = [math]::Ceiling(((Get-Item $app).Length + (Get-Item $shell).Length + (Get-Item docs/licenses/dependency-licenses.md).Length) / 1024)
     if (-not $ModernPackage) {
         $cachedIdentity = Join-Path $TargetDir 'modern-integration\Anemorph.identity.msix'
         if ((Test-Path -LiteralPath $cachedIdentity) -and (Get-AuthenticodeSignature -LiteralPath $cachedIdentity).SignerCertificate) {

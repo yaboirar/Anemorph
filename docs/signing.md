@@ -4,7 +4,7 @@
 
 **What Windows trust means for Anemorph downloads.**
 
-[Home](../README.md) · [Build from source](building.md) · [Third-party notices](../THIRD_PARTY_NOTICES.md)
+[Home](../README.md) · [Build from source](building.md) · [Third-party notices](licenses/third-party-notices.md)
 
 </div>
 
@@ -51,7 +51,7 @@ The publisher name comes from the identity approved by the signing provider. Cha
 
 [SignPath Foundation](https://signpath.org/apply) accepts applications for free signing. Approval is external and not guaranteed. Its [terms](https://signpath.org/terms) include open-source components, project verification, multi-factor authentication, verifiable builds, and release approval.
 
-**The supplied Anemo artwork needs review before claiming eligibility.** It is excluded from MIT, and redistribution permission has not been established. See [third-party notices](../THIRD_PARTY_NOTICES.md). No SignPath approval or sponsorship is claimed.
+**The supplied Anemo artwork needs review before claiming eligibility.** It is excluded from MIT, and redistribution permission has not been established. See [third-party notices](licenses/third-party-notices.md). No SignPath approval or sponsorship is claimed.
 
 ---
 
