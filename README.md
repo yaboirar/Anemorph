@@ -1,65 +1,78 @@
 # Anemorph
 
-**Rename a video library without losing its episode numbers.**
+**Tidy up your anime, TV, and movie filenames.**
 
-Anemorph is a free, open-source Windows app for batch-renaming anime, TV episodes, and movies. Review every proposed name before applying a batch, then undo the last batch if you need to. Video contents stay untouched.
+Anemorph is a free, open-source Windows app that renames many video files at once. Choose a folder, check what the new names will look like, and rename the files you want. Your videos stay exactly the same.
 
-[**Download v0.0.3**](https://github.com/yaboirar/Anemorph/releases/tag/v0.0.3) · [What's changed](CHANGELOG.md#003---2026-10-28) · [User guide](docs/usage.md)
+[**Download Anemorph 0.0.3**](https://github.com/yaboirar/Anemorph/releases/tag/v0.0.3) · [How to use it](docs/usage.md) · [What's new](CHANGELOG.md#003---2026-10-28)
 
-![Anemorph showing original names, proposed names, and unchanged files](assets/screenshots/home.jpg)
+![Anemorph showing the current filenames beside the new filenames](assets/screenshots/home.jpg)
 
-## Built around the rename itself
+## What can it do?
 
-- **Keep the right numbers.** Recognized seasons, episode numbers, and gaps stay intact. Sequential numbering for unrecognized files is optional.
-- **See the result first.** Compare original and proposed names, select a range, exclude files, and resolve name conflicts before applying anything.
-- **Recover a batch.** Undo restores previous names, with checks for files changed since renaming and recovery for interrupted batches.
-- **Start where your files are.** Right-click supported videos in File Explorer and choose **Rename with Anemorph**. Episodes and movies can share a batch.
+- **Rename a whole folder at once.** Save yourself the work of changing every filename by hand.
+- **Keep the episode numbers.** If your folder contains episodes 1, 4, and 19, the app keeps those numbers instead of changing them to 1, 2, and 3.
+- **Show every new name before you rename.** Leave out any file you want, and see when two files would end up with the same name.
+- **Undo your last rename.** Put the previous filenames back if you change your mind.
+- **Use your own naming style.** Choose how episodes and movies should be named, and tell the app when a file is a movie.
+- **Open it from File Explorer.** Right-click your videos and choose **Rename with Anemorph**.
 
-Everything runs locally. No account, uploads, or video conversion.
+No account is needed. Your files stay on your computer, and the app only changes their names.
 
-## What's improved in 0.0.3
+## What's new in 0.0.3?
 
-**Explorer integration and uninstall are the focus of this release.** Duplicate menu entries are removed. The menu handler runs in Anemorph's own process, and uninstall closes that process instead of forcing Explorer to restart. The integration check no longer gets stuck on Working after reinstall.
+**The repeated right-click option is fixed.** File Explorer should show one **Rename with Anemorph** option.
 
-**Repair is built in.** Settings > Integration > Repair Anemorph reloads saved preferences, refreshes the current file list, and repairs menu registration. Repair and Uninstall now share one panel.
+**Uninstall no longer forces File Explorer to close.** The app removes its own files and settings while leaving your videos alone. Reinstalling also no longer leaves the right-click menu setting stuck on **Working…**.
 
-**Tested beyond the dedicated GPU.** With the process limited to two logical processors, a 50,000-filename preview took about **194 ms**. The UI also completed its checks on Microsoft's CPU renderer. These are measurements from a constrained modern PC, not a promise for every older machine. Read the [performance and security report](docs/performance.md) for memory figures, test conditions, and remaining limitations.
+**There's a Repair button in Settings.** It reloads your saved settings, checks the folder again, and restores Anemorph's right-click option if it has stopped working. Repair and Uninstall are together in one place.
 
-The release also adds **11 interface languages** and improves selection, button clarity, context menus, and small-window layouts. See the [full changelog](CHANGELOG.md#003---2026-10-28).
+**The app is easier to use.** Buttons are clearer, right-click choices are separated, and the file counts sit beside refresh and filter. You can also choose from **11 languages**.
 
-## Start renaming
+We also checked large folders and tested the app without relying on a gaming graphics card. A preview of 50,000 filenames took about **0.2 seconds** on the test computer. Speed will vary on other computers. [See the test results](docs/performance.md).
 
-1. Download **Anemorph-Setup-0.0.3.exe** from the [release page](https://github.com/yaboirar/Anemorph/releases/tag/v0.0.3). A portable ZIP is also available.
-2. Choose a folder, paste its path, or drop it into the app.
-3. Check the series name and preview, then include the files you want.
-4. Click **Rename**. Use **Undo last batch** to restore the previous names.
+## Get started
 
-| Original | Proposed |
+1. Download **Anemorph-Setup-0.0.3.exe** from the [downloads page](https://github.com/yaboirar/Anemorph/releases/tag/v0.0.3) and open it to install the app.
+2. Choose a folder, paste its path, or drag it into Anemorph.
+3. Check the series name and the new filenames. Choose which files to include.
+4. Click **Rename**.
+
+Use **Undo last batch** to put the previous names back.
+
+| Before | After |
 | :--- | :--- |
 | `[Group] Anemorph - 09 [1080p].mkv` | `Anemorph S01E09.mkv` |
 | `[Group] Anemorph Movie [1080p].mp4` | `Anemorph Movie.mp4` |
 
-The installer lets you choose its destination and includes Explorer integration. No .NET runtime is needed. The portable app works without installation; Explorer integration requires setup.
+Want to use it without installing? Download **Anemorph-v0.0.3-windows.zip**, extract it, and open **Anemorph.exe**. Use the installer if you also want the right-click option in File Explorer.
 
-## In File Explorer
+## Right-click your videos
 
-![A single Rename with Anemorph command in the Windows 11 context menu](assets/screenshots/explorer-menu.png)
+![Rename with Anemorph in the Windows 11 right-click menu](assets/screenshots/explorer-menu.png)
 
-Choose the classic menu or Windows 11's first right-click menu under **Settings > Integration**. The first-menu option may require Windows administrator approval to trust the included development signing certificate. Declining keeps the classic menu available. The installer is unsigned.
+On Windows 11, you can choose whether Anemorph appears straight away or under **Show more options**. Find this under **Settings > Integration**.
 
-## Your library, your choices
+Windows may ask you to approve the first-menu option. You can decline and still use Anemorph under **Show more options**. Windows may also show an **unknown publisher** warning when you open the installer.
 
-Choose your episode/movie naming styles, classify a file from its right-click menu, and filter any combination of supported containers. No active filter shows all supported videos. Configuration controls which choices appear in Home's filter menu.
+## Choose what works for you
 
-Supported containers: **MKV, MP4, MOV, AVI, WebM, M4V**, WMV, FLV, MPG, MPEG, MPE, M2V, TS, MTS, M2TS, VOB, OGV, OGM, 3GP, 3G2, ASF, DIVX, F4V, MXF, RM, and RMVB.
+- Choose the video file types you want to see. You can select several types together, or leave the filter empty to show them all.
+- Choose your own episode and movie names in **Configuration**.
+- Change the language and appearance in **Settings**.
+
+Supported video file types: **MKV, MP4, MOV, AVI, WebM, M4V**, WMV, FLV, MPG, MPEG, MPE, M2V, TS, MTS, M2TS, VOB, OGV, OGM, 3GP, 3G2, ASF, DIVX, F4V, MXF, RM, and RMVB.
 
 Languages: English (US/UK), Russian, Spanish, Portuguese, Turkish, German, Japanese, Korean, Simplified Chinese, and Modern Standard Arabic.
 
-- [User guide](docs/usage.md): naming, selection, filters, undo, and installation.
-- [Building from source](docs/building.md): Rust workspace, installer, and Windows integration.
-- [Performance and security](docs/performance.md): measured results and their limits.
-- [Contributing](CONTRIBUTING.md): bug reports, ideas, and code changes.
+## Need more?
 
-Created by [@yaboirar](https://github.com/yaboirar). Written in Rust.
+- [User guide](docs/usage.md)
+- [What's changed](CHANGELOG.md)
+- [Report a problem or suggest an idea](https://github.com/yaboirar/Anemorph/issues)
+- [Test results and known limits](docs/performance.md)
+- [Build the app yourself](docs/building.md) · [Contribute](CONTRIBUTING.md)
 
-Source code is licensed under [MIT](LICENSE). The supplied Anemo artwork is excluded from MIT; see [third-party notices](THIRD_PARTY_NOTICES.md) and [dependency licenses](DEPENDENCY_LICENSES.md).
+Created by [@yaboirar](https://github.com/yaboirar).
+
+The code is available under the [MIT license](LICENSE). The supplied Anemo artwork has separate terms and is not covered by that license. See [third-party notices](THIRD_PARTY_NOTICES.md) and [dependency licenses](DEPENDENCY_LICENSES.md).

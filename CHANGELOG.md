@@ -2,33 +2,32 @@
 
 ## 0.0.3 - 2026-10-28
 
-### Explorer integration and installation
+### Fixes
 
-- Fix duplicate Rename with Anemorph entries by making modern and classic registrations mutually exclusive, including stale COM registrations during upgrades.
-- Run both menu modes in Anemorph's own broker instead of loading a DLL into Explorer.
-- Remove forced Explorer shutdown/restart from uninstall. Close only Anemorph's host and remove app-owned files, settings, shortcuts, and registration while preserving unrelated files.
-- Keep legacy DLL removal safe when Windows still holds an older file open; report the lock instead of freezing the desktop.
-- Fix Integration remaining on Working after reinstall. Status checks are read-only, helper operations have timeouts, and the resident host inherits no parent handles.
-- Add Repair Anemorph in Settings to reload saved preferences, rescan files, and repair Explorer registration. Group Repair and Uninstall in one panel.
+- Remove the repeated Rename with Anemorph option from File Explorer, including after upgrades.
+- Stop forcing File Explorer to close during uninstall. Remove Anemorph's own files and settings while preserving your videos and unrelated files.
+- Fix the right-click menu setting getting stuck on Working after reinstall.
+- Add Repair Anemorph in Settings to reload saved settings, check the folder again, and restore the right-click option. Put Repair and Uninstall together.
+- Let users include and exclude files even when their names do not need changing. Those files are not renamed unnecessarily.
 
-### Everyday use
+### Easier to use
 
-- Let unchanged files be included or excluded without turning them into rename operations.
-- Add clear separation between context-menu choices and visible surfaces to Home actions.
-- Move file and selection counts beside refresh/filter controls.
-- Move the app name, version, and About shortcut to the bottom-left footer.
-- Keep navigation icon-only when animations are disabled.
-- Merge highlight color into Appearance and place Language between Appearance and Integration.
-- Add Russian, English (US/UK), Spanish, Portuguese, Turkish, German, Japanese, Korean, Simplified Chinese, and Modern Standard Arabic interfaces. Load script fonts on demand and shape Arabic text.
-- Separate episode/movie format reference lists and reject indexes belonging to the other format.
+- Add clearer Home buttons and visible separators between right-click choices.
+- Move the file and selection counts beside refresh and filter.
+- Move the app name, version, and About shortcut to the bottom left.
+- Keep the top buttons as icons when animations are turned off.
+- Put highlight color inside Appearance, with Language between Appearance and Integration.
+- Add Russian, English (US/UK), Spanish, Portuguese, Turkish, German, Japanese, Korean, Simplified Chinese, and Modern Standard Arabic.
+- Give episode and movie naming their own help lists and reject options that belong to the other type.
 
-### Performance and verification
+### Speed and checks
 
-- Prefer integrated graphics and retain CPU-rendering fallback, without loading CJK fonts for English users.
-- Add repeatable constrained benchmarks, software-rendering checks, and repeated-preview private-memory sampling.
-- Validate on two logical processors using Microsoft's CPU renderer; publish the measurements and limitations in docs/performance.md.
-- Add regression coverage for integration mode changes, helper timeouts, unchanged-file selection, format separation, translations, and font coverage.
-- Include Home and Explorer menu screenshots in the README.
+- Avoid loading fonts for languages that are not in use.
+- Test the app with only two CPU threads available and without using a dedicated graphics card.
+- Check large folders, repeated previews, idle memory use, and recovery after interrupted renames.
+- Pass 70 automated tests and add screenshots to the README.
+
+See [test results and known limits](docs/performance.md) for the full measurements and technical details.
 
 ## 0.0.2 - 2026-10-27
 
