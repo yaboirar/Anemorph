@@ -1,12 +1,18 @@
+<div align="center">
+
 # Anemorph
 
 **Your videos. Your naming style.**
 
-Anemorph is a free, open-source Windows app that renames anime episodes, TV shows, and movies in bulk. You see every new filename before anything changes, you decide which files are included, and you can undo the last batch with one click.
+Rename anime episodes, TV shows, and movies in bulk. Preview every change first, and undo the last batch if you change your mind.
 
-[**Download 0.0.3**](https://github.com/yaboirar/Anemorph/releases/tag/v0.0.3) · [User guide](docs/usage.md) · [Changelog](CHANGELOG.md) · [Report an issue](https://github.com/yaboirar/Anemorph/issues)
+[**Download the installer**](https://github.com/yaboirar/Anemorph/releases/download/v0.0.3/Anemorph-Setup-0.0.3.exe) · [Portable ZIP](https://github.com/yaboirar/Anemorph/releases/download/v0.0.3/Anemorph-v0.0.3-windows.zip) · [User guide](docs/usage.md) · [Changelog](CHANGELOG.md)
+
+<br />
 
 ![Anemorph showing original filenames beside their new names](assets/screenshots/home.jpg)
+
+</div>
 
 ---
 
