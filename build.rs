@@ -3,7 +3,7 @@ fn main() {
         winresource::WindowsResource::new()
             .set_icon("assets/icon.ico")
             .set("ProductName", "Anemorph")
-            .set("FileDescription", "Anemorph video file renamer")
+            .set("FileDescription", "Anemorph")
             .compile()
             .expect("Could not embed the application icon");
     }

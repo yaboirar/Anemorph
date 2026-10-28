@@ -1,4 +1,4 @@
-param([string]$TargetDir, [string]$OutputDir, [switch]$SkipBuild, [string]$ModernPackage)
+param([string]$TargetDir, [string]$OutputDir, [switch]$SkipBuild, [string]$ModernPackage, [string]$ReleaseCertificateThumbprint, [string]$SignTool)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 if (-not $TargetDir) { $TargetDir = Join-Path $repo 'target' }
@@ -17,6 +17,14 @@ try {
     $shell = Join-Path $TargetDir 'release\anemorph_shell.dll'
     $maintenance = Join-Path $TargetDir 'release\anemorph-maintenance.exe'
     $broker = Join-Path $TargetDir 'release\anemorph-broker.exe'
+    $signArgs = @()
+    if ($ReleaseCertificateThumbprint) {
+        & (Join-Path $PSScriptRoot 'sign.ps1') -CertificateThumbprint $ReleaseCertificateThumbprint -ValidateOnly
+        if (-not $SignTool) { $SignTool = (Get-Command signtool.exe -ErrorAction Stop).Source }
+        $SignTool = (Resolve-Path -LiteralPath $SignTool).Path
+        & (Join-Path $PSScriptRoot 'sign.ps1') -CertificateThumbprint $ReleaseCertificateThumbprint -SignTool $SignTool -Files @($app,$maintenance,$broker,$shell)
+        $signArgs = @("/DRELEASE_CERT=$ReleaseCertificateThumbprint", "/DSIGN_TOOL=$SignTool", "/DSIGN_SCRIPT=$(Join-Path $PSScriptRoot 'sign.ps1')", "/DSIGN_POWERSHELL=$((Get-Command powershell.exe).Source)")
+    }
     $hash = (Get-FileHash -LiteralPath $shell -Algorithm SHA256).Hash.Substring(0, 12).ToLowerInvariant()
     $generated = Join-Path $TargetDir 'installer'
     New-Item -ItemType Directory -Path $generated, $OutputDir -Force | Out-Null
@@ -38,6 +46,7 @@ try {
     if ($ModernPackage) {
         $ModernPackage = [IO.Path]::GetFullPath($ModernPackage)
         if (-not (Test-Path -LiteralPath $ModernPackage)) { throw 'Modern integration package is missing.' }
+        if ($ReleaseCertificateThumbprint -and (Get-AuthenticodeSignature -LiteralPath $ModernPackage).SignerCertificate.Thumbprint -ne $ReleaseCertificateThumbprint) { throw 'Rebuild the Windows menu package using the same verified publisher certificate before a signed release.' }
         if (-not (Get-AuthenticodeSignature -LiteralPath $ModernPackage).SignerCertificate) { throw 'The modern integration package must be signed before it is bundled for installation.' }
         $zip = [IO.Compression.ZipFile]::OpenRead($ModernPackage)
         try {
@@ -50,7 +59,10 @@ try {
         }
         $modernArgs = @("/DMODERN_PACKAGE=$ModernPackage")
     }
-    & makensis.exe /V2 "/DAPP_VERSION=$version" "/DAPP_EXE=$app" "/DMAINTENANCE_EXE=$maintenance" "/DBROKER_EXE=$broker" "/DSHELL_DLL=$shell" "/DSHELL_NAME=anemorph-shell-$hash.dll" "/DOUTPUT_FILE=$output" "/DREGISTER_INCLUDE=$register" "/DUNREGISTER_INCLUDE=$unregister" "/DINSTALLED_KB=$kb" @modernArgs (Join-Path $PSScriptRoot 'Anemorph.nsi')
+    & makensis.exe /V2 "/DAPP_VERSION=$version" "/DAPP_EXE=$app" "/DMAINTENANCE_EXE=$maintenance" "/DBROKER_EXE=$broker" "/DSHELL_DLL=$shell" "/DSHELL_NAME=anemorph-shell-$hash.dll" "/DOUTPUT_FILE=$output" "/DREGISTER_INCLUDE=$register" "/DUNREGISTER_INCLUDE=$unregister" "/DINSTALLED_KB=$kb" @modernArgs @signArgs (Join-Path $PSScriptRoot 'Anemorph.nsi')
     if ($LASTEXITCODE -ne 0) { throw 'Installer build failed.' }
+    if ($ReleaseCertificateThumbprint) {
+        & (Join-Path $PSScriptRoot 'sign.ps1') -CertificateThumbprint $ReleaseCertificateThumbprint -SignTool $SignTool -Files @($output)
+    }
     Get-Item -LiteralPath $output
 } finally { Pop-Location }

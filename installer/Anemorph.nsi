@@ -2,6 +2,9 @@ Unicode true
 RequestExecutionLevel user
 ManifestDPIAware true
 SetCompressor /SOLID lzma
+!ifdef RELEASE_CERT
+!uninstfinalize '"${SIGN_POWERSHELL}" -NoProfile -NonInteractive -File "${SIGN_SCRIPT}" -CertificateThumbprint "${RELEASE_CERT}" -SignTool "${SIGN_TOOL}" -Files "%1"' = 0
+!endif
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 !include "x64.nsh"

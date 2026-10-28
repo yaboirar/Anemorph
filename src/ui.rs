@@ -52,6 +52,43 @@ mod title_bar_tests {
     }
 
     #[test]
+    fn stationary_navigation_hover_finishes_animating() {
+        for x in (410..=590).step_by(6) {
+            let ctx = Context::default();
+            let cc = eframe::CreationContext::_new_kittest(ctx.clone());
+            let mut app = App::new(
+                &cc,
+                Some(std::env::temp_dir().join("anemorph-hover-settle")),
+            );
+            app.transition = Instant::now() - Duration::from_secs(1);
+            let mut delay = Duration::ZERO;
+            for frame in 0..90 {
+                let output = ctx.run(
+                    egui::RawInput {
+                        screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(1000., 700.))),
+                        time: Some(frame as f64 / 60.),
+                        events: if frame == 1 {
+                            vec![egui::Event::PointerMoved(Pos2::new(x as f32, 26.))]
+                        } else {
+                            vec![]
+                        },
+                        ..Default::default()
+                    },
+                    |ctx| {
+                        egui::TopBottomPanel::top("navigation")
+                            .exact_height(52.)
+                            .show(ctx, |ui| app.nav(ui));
+                    },
+                );
+                delay = output.viewport_output[&egui::ViewportId::ROOT].repaint_delay;
+            }
+            assert!(
+                delay > Duration::from_millis(100),
+                "hover at x={x} keeps repainting: {delay:?}"
+            );
+        }
+    }
+    #[test]
     fn title_bar_drags_on_both_sides_and_tabs() {
         for point in [
             Pos2::new(100., 20.),

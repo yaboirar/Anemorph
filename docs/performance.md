@@ -1,8 +1,18 @@
 # Anemorph 0.0.3 performance and security
 
-Measured on 28 October 2026 against the final implementation before the 0.0.3 version metadata update. The version change does not alter the measured algorithms or renderer.
+Measured on 28 October 2026. The updated 0.0.3 downloads use the lower-memory drawing path described first. The earlier release measurements are retained below for comparison.
 
-## Scope and limits
+## Updated 0.0.3: lower memory and correct selection
+
+The earlier GPU-based results below do not describe the new default drawing path. A fresh-profile comparison on the same Windows PC measured about 32.21 MiB working set and 18.53 MiB private memory for the CPU pixel-buffer path, with 0% late idle CPU across the measured samples. The previous DX12 path measured about 101.62 MiB working set; an OpenGL trial measured 139.75 MiB and was rejected as the default.
+
+The new default does not create a GPU device. Full frame drawing averaged 2.76 ms, with a 4.99 ms 95th percentile in the two-logical-processor smoke test. The cold first frame peaked at 185.56 ms. There was one idle repaint in the 1.8-second check. These are local measurements, not measurements from the user's Ryzen laptop. The laptop still needs its own verification.
+
+Follow-up active measurements: the 10,002-file UI workload peaked at 88.34 MiB working set and 73.28 MiB sampled private allocation, with 5.05 ms 95th-percentile full drawing frames. The cold worst frame was 230.91 ms. Interactive scrolling and a real 300-file Rename/Undo button workflow peaked at 42.72 MiB working set and 23.87 MiB sampled private allocation. All original fixture names and contents were restored. Active CPU had short bursts; it must not be described as zero based on the idle sample. These tests used separate disposable files and history.
+
+Explorer-imported files are now checked and highlighted, including unchanged files. Rename eligibility still prevents unchanged or invalid targets from becoming operations. Task Manager's executable description is now exactly Anemorph. 72 workspace tests passed.
+
+## Earlier 0.0.3 build: scope and limits
 
 The actual test process was restricted to logical processors 0 and 1 (affinity 0x3). The UI was explicitly rendered by Microsoft Basic Render Driver, a CPU adapter using DX12. This bypassed the dedicated GPU. CPU affinity restricts parallel execution; it does not emulate a slower processor, lower memory bandwidth, limited RAM, slower disks, or different display drivers. This is evidence for a constrained execution path, not certification for every low-end PC or a guarantee of 60 FPS.
 

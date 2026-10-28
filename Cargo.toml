@@ -9,8 +9,13 @@ readme = "README.md"
 publish = false
 
 [dependencies]
-eframe = { version = "0.33.3", default-features = false, features = ["default_fonts", "wgpu"] }
+eframe = { version = "0.33.3", default-features = false, features = ["default_fonts", "glow", "wgpu"] }
 wgpu = { version = "27", default-features = false, features = ["dx12", "wgsl"] }
+egui_software_backend = { version = "=0.0.2", default-features = false, features = ["std"] }
+egui-winit = { version = "0.33.3", default-features = false, features = ["clipboard", "links"] }
+winit = "0.30"
+softbuffer = { version = "0.4", default-features = false }
+bytemuck = "1"
 regex = "1"
 arabic_reshaper = "0.4.2"
 unicode-bidi = "0.3"

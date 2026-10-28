@@ -46,6 +46,8 @@ The table renders visible rows only. File scanning, renaming, and large previews
 
 ## Constrained performance checks
 
+Normal startup draws the interface into a CPU pixel buffer without creating a GPU device. Run `Anemorph.exe --smoke-test <isolated-output-directory>` to test this default path. The optional `--renderer=wgpu` and `--renderer=glow` switches retain the earlier renderers for diagnosis. `--software-rendering` selects the earlier DX12 WARP path, not the new default.
+
 Use `Anemorph.exe --benchmark <isolated-output-directory>` for scans, preview throughput, rename/undo, and thirty repeated-preview private-memory samples. Only disposable fixture files in that output directory are modified.
 
 Use `Anemorph.exe --smoke-test <isolated-output-directory> --software-rendering` to exercise the UI on a CPU graphics adapter. `graphics.json` records the actual selected adapter. Limit only the test process to two logical processors for constrained runs. Affinity limits concurrency; it does not emulate an older CPU, slower storage, or lower memory bandwidth.

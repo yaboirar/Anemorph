@@ -1148,8 +1148,8 @@ impl App {
         }
     }
 }
-impl eframe::App for App {
-    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+impl App {
+    pub(crate) fn update_ui(&mut self, ctx: &Context) {
         let measured = self.smoke.is_some().then(Instant::now);
         self.frames += 1;
         self.poll(ctx);
@@ -1270,7 +1270,12 @@ impl eframe::App for App {
             self.ui_micros += start.elapsed().as_micros();
         }
     }
-    fn on_exit(&mut self) {
+}
+impl eframe::App for App {
+    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+        self.update_ui(ctx);
+    }
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         self.save_settings();
     }
 }

@@ -7,6 +7,7 @@ mod integration;
 mod naming;
 mod perf;
 mod selection;
+mod software;
 mod ui;
 mod uninstall;
 mod window_drag;
@@ -35,6 +36,7 @@ impl Page {
         }
     }
 }
+#[derive(Clone)]
 enum StartupSelection {
     Request(PathBuf),
     Files(Vec<PathBuf>),
@@ -85,6 +87,7 @@ struct App {
     selected_files: Option<Arc<Vec<PathBuf>>>,
     media_markers: Arc<engine::MediaMarkers>,
     keep_selection: bool,
+    select_imported: bool,
     completed: std::collections::HashSet<PathBuf>,
     container_anchor: Option<(usize, bool)>,
     preview: Option<mpsc::Receiver<Result<Vec<Row>, String>>>,
@@ -173,23 +176,39 @@ impl App {
         restore_folder: bool,
     ) -> Self {
         round_window_corners(cc);
-        if let Some(dir) = &smoke
-            && let Some(render) = &cc.wgpu_render_state
-        {
-            let info = render.adapter.get_info();
-            let _ = std::fs::write(dir.join("graphics.json"), serde_json::json!({"adapter":info.name,"type":format!("{:?}",info.device_type),"backend":format!("{:?}",info.backend)}).to_string());
+        if let Some(dir) = &smoke {
+            if let Some(render) = &cc.wgpu_render_state {
+                let info = render.adapter.get_info();
+                let _ = std::fs::write(dir.join("graphics.json"), serde_json::json!({"adapter":info.name,"type":format!("{:?}",info.device_type),"backend":format!("{:?}",info.backend)}).to_string());
+            } else if let Some(gl) = &cc.gl {
+                use eframe::glow::HasContext;
+                // Read-only query on the active context owned by eframe.
+                let name = unsafe { gl.get_parameter_string(eframe::glow::RENDERER) };
+                let _ = std::fs::write(
+                    dir.join("graphics.json"),
+                    serde_json::json!({"adapter":name,"backend":"OpenGL"}).to_string(),
+                );
+            }
         }
         use raw_window_handle::{HasWindowHandle, RawWindowHandle};
         let native_window = cc.window_handle().ok().and_then(|h| match h.as_raw() {
             RawWindowHandle::Win32(w) => Some(w.hwnd.get() as usize),
             _ => None,
         });
+        Self::initialize_core(&cc.egui_ctx, smoke, restore_folder, native_window)
+    }
+    fn initialize_core(
+        ctx: &Context,
+        smoke: Option<PathBuf>,
+        restore_folder: bool,
+        native_window: Option<usize>,
+    ) -> Self {
         let data = smoke
             .as_ref()
             .map(|p| p.join("settings"))
             .unwrap_or_else(engine::data_dir);
         let settings = Settings::load(&data.join("settings.json"));
-        i18n::configure(&cc.egui_ctx, &settings.language);
+        i18n::configure(ctx, &settings.language);
         let color = settings
             .accent_hex
             .as_deref()
@@ -198,7 +217,7 @@ impl App {
         let logo = image::load_from_memory(include_bytes!("../assets/icon.png"))
             .expect("Embedded logo")
             .to_rgba8();
-        let logo = cc.egui_ctx.load_texture(
+        let logo = ctx.load_texture(
             "anemorph-brand",
             egui::ColorImage::from_rgba_unmultiplied(
                 [logo.width() as usize, logo.height() as usize],
@@ -237,11 +256,12 @@ impl App {
             selected_files: None,
             media_markers: Arc::new(engine::load_media_markers(&data.join("media-markers.json"))),
             keep_selection: false,
+            select_imported: false,
             completed: std::collections::HashSet::new(),
             container_anchor: None,
             preview: None,
             preview_again: false,
-            context: cc.egui_ctx.clone(),
+            context: ctx.clone(),
             undo_available: data.join("native-last-batch.json").is_file()
                 || data.join("native-last-batch.staged").is_file(),
             undo_check: Instant::now(),
@@ -285,9 +305,9 @@ impl App {
             ui_micros: 0,
             max_visible_rows: 0,
         };
-        app.theme(&cc.egui_ctx);
+        app.theme(ctx);
         if let Some(p) = startup.filter(|p| restore_folder && p.is_dir()) {
-            app.open(p, true, &cc.egui_ctx)
+            app.open(p, true, ctx)
         }
         app
     }
@@ -432,10 +452,12 @@ impl App {
         self.settings.filter_extensions.clear();
         self.root = Some(root.clone());
         self.selected_files = Some(Arc::new(files));
+        self.select_imported = true;
         self.open(root, false, ctx);
     }
     fn folder_edited(&mut self, ctx: &Context) {
         self.selected_files = None;
+        self.select_imported = false;
         self.counts.set(None);
         self.root = None;
         self.rows = Vec::new();
@@ -548,6 +570,12 @@ impl App {
                                 row.included = *included && row.ready;
                             }
                         }
+                    }
+                }
+                if std::mem::take(&mut self.select_imported) {
+                    for row in &mut rows {
+                        row.included = true;
+                        row.highlighted = true;
                     }
                 }
                 self.rows = rows;
@@ -1036,6 +1064,19 @@ fn main() -> eframe::Result {
     let settings = Settings::load(&data.join("settings.json"));
     let icon = eframe::icon_data::from_png_bytes(include_bytes!("../assets/icon.png"))
         .expect("Embedded icon");
+    if !args
+        .iter()
+        .any(|a| a == "--renderer=wgpu" || a == "--renderer=glow" || a == "--software-rendering")
+    {
+        let viewport = egui::ViewportBuilder::default()
+            .with_title("Anemorph")
+            .with_inner_size([settings.window_width, settings.window_height])
+            .with_min_inner_size([480., 360.])
+            .with_decorations(false)
+            .with_resizable(true)
+            .with_icon(icon.clone());
+        return software::run(viewport, smoke, selection);
+    }
     let mut graphics = eframe::egui_wgpu::WgpuConfiguration {
         desired_maximum_frame_latency: Some(1),
         ..Default::default()
@@ -1054,8 +1095,8 @@ fn main() -> eframe::Result {
                     wgpu::DeviceType::IntegratedGpu => 0,
                     wgpu::DeviceType::DiscreteGpu => 1,
                     wgpu::DeviceType::VirtualGpu => 2,
-                    wgpu::DeviceType::Cpu => 3,
-                    _ => 4,
+                    wgpu::DeviceType::Cpu => 4,
+                    _ => 3,
                 })
                 .cloned()
                 .ok_or_else(|| {
@@ -1070,7 +1111,15 @@ fn main() -> eframe::Result {
             device
         });
     }
+    let force_wgpu = args
+        .iter()
+        .any(|a| a == "--software-rendering" || a == "--renderer=wgpu");
     let options = eframe::NativeOptions {
+        renderer: if force_wgpu {
+            eframe::Renderer::Wgpu
+        } else {
+            eframe::Renderer::Glow
+        },
         wgpu_options: graphics,
         viewport: egui::ViewportBuilder::default()
             .with_title("Anemorph")
@@ -1081,17 +1130,30 @@ fn main() -> eframe::Result {
             .with_icon(icon),
         ..Default::default()
     };
-    eframe::run_native(
-        "Anemorph",
-        options,
-        Box::new(move |cc| {
-            let mut app = App::initialize(cc, smoke, selection.is_none());
-            if let Some(selection) = selection {
-                app.request_selection(selection, &cc.egui_ctx);
-            }
-            Ok(Box::new(app))
-        }),
-    )
+    let run = |options: eframe::NativeOptions| {
+        let smoke = smoke.clone();
+        let selection = selection.clone();
+        eframe::run_native(
+            "Anemorph",
+            options,
+            Box::new(move |cc| {
+                let mut app = App::initialize(cc, smoke, selection.is_none());
+                if let Some(selection) = selection {
+                    app.request_selection(selection, &cc.egui_ctx);
+                }
+                Ok(Box::new(app))
+            }),
+        )
+    };
+    let fallback = options.clone();
+    match run(options) {
+        Err(_) if !force_wgpu => {
+            let mut fallback = fallback;
+            fallback.renderer = eframe::Renderer::Wgpu;
+            run(fallback)
+        }
+        result => result,
+    }
 }
 
 #[cfg(test)]
@@ -1103,6 +1165,40 @@ mod tests {
             &cc,
             Some(std::env::temp_dir().join(format!("anemorph-ui-{}", std::process::id()))),
         )
+    }
+    #[test]
+    fn explorer_selection_is_checked_and_highlighted_without_importing_neighbors() {
+        let mut a = app();
+        let ctx = a.context.clone();
+        let root =
+            std::env::temp_dir().join(format!("anemorph-import-selection-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let files = vec![root.join("Show S01E01.mkv"), root.join("Raw S01E04.mp4")];
+        for path in files
+            .iter()
+            .chain(std::iter::once(&root.join("Other S01E19.mkv")))
+        {
+            std::fs::write(path, b"fixture").unwrap();
+        }
+        a.settings.auto_name = false;
+        a.series = "Show".into();
+        a.open_selection(files.clone(), &ctx);
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while a.busy && Instant::now() < deadline {
+            a.poll(&ctx);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert!(!a.busy);
+        assert_eq!(a.rows.len(), 2);
+        assert!(
+            a.rows
+                .iter()
+                .all(|r| files.contains(&r.source) && r.included && r.highlighted)
+        );
+        assert_eq!(a.row_counts().2, 2);
+        assert_eq!(a.row_counts().1, 1);
+        assert!(a.rows.iter().any(|r| r.status == "No change" && !r.ready));
+        std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
     fn unchanged_files_can_be_included_but_are_never_rename_operations() {

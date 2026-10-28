@@ -21,6 +21,10 @@ No account is needed. Your files stay on your computer, and the app only changes
 
 ## What's new in 0.0.3?
 
+**The latest 0.0.3 patch uses less memory.** The app now draws its window without starting a graphics engine. On the test computer, memory use was about **32 MB while idle**, **43 MB during a 300-file rename and undo**, and **88 MB at its peak during a 10,002-file interface test**. These are measurements from one computer, not promises for every PC. [See the tests and limits](docs/performance.md).
+
+**Videos opened from File Explorer arrive selected.** You can rename the files you picked without selecting them again. Task Manager also shows the app simply as **Anemorph**.
+
 **The repeated right-click option is fixed.** File Explorer should show one **Rename with Anemorph** option.
 
 **Uninstall no longer forces File Explorer to close.** The app removes its own files and settings while leaving your videos alone. Reinstalling also no longer leaves the right-click menu setting stuck on **Working…**.

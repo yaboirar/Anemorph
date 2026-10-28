@@ -2,6 +2,15 @@
 
 ## 0.0.3 - 2026-10-28
 
+### Updated 0.0.3 downloads
+
+- Reduce memory use by drawing the window without starting a graphics engine by default.
+- Check active use as well as idle: scrolling, large folders, and a 300-file rename followed by undo. All 300 original filenames and file contents were verified after undo.
+- Keep files selected when opened from File Explorer, including files whose names do not need changing. Only files that need a rename are processed.
+- Show Anemorph as the app name in Task Manager.
+- Stop navigation animations from keeping the app busy after the pointer stops moving.
+- Pass 72 automated tests. Add support for verified release signing; the current downloads remain unsigned and Windows may still show a warning.
+
 ### Fixes
 
 - Remove the repeated Rename with Anemorph option from File Explorer, including after upgrades.
