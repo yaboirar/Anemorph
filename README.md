@@ -6,6 +6,11 @@
 
 Rename anime episodes, TV shows, and movies in bulk. Preview every change first, and undo the last batch if you change your mind.
 
+[![Release](https://img.shields.io/github/v/release/yaboirar/Anemorph?style=for-the-badge&label=Release)](https://github.com/yaboirar/Anemorph/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/yaboirar/Anemorph/total?style=for-the-badge&label=Downloads)](https://github.com/yaboirar/Anemorph/releases)
+[![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge)](https://github.com/yaboirar/Anemorph/releases/latest)
+[![License](https://img.shields.io/badge/License-MIT-10b981?style=for-the-badge)](LICENSE)
+
 [**Download the installer**](https://github.com/yaboirar/Anemorph/releases/download/v0.0.3/Anemorph-Setup-0.0.3.exe) · [Portable ZIP](https://github.com/yaboirar/Anemorph/releases/download/v0.0.3/Anemorph-v0.0.3-windows.zip) · [User guide](docs/usage.md) · [Changelog](CHANGELOG.md)
 
 <br />
