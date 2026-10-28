@@ -1,105 +1,177 @@
-# Using Anemorph
+<div align="center">
 
-## Getting started
+# User guide
 
-1. Run `Anemorph-Setup-0.0.3.exe` to install, or open the portable `Anemorph.exe`. Neither needs a .NET runtime.
-2. Paste a folder path, click **Browse**, or drop a folder into the window.
-3. Check the suggested series name. You can edit it or use its refresh icon to restore the original detected name, including after you edit or clear it.
-4. Review the **New filename** column and choose the files you want to rename.
-5. Click **Rename**. **Undo last batch** restores the most recent batch when the files are still unchanged.
+**From a folder of videos to names that make sense.**
 
-The small version label sits beneath Anemorph in the upper-left corner. Click the app name to open About, including the creator credit to [@yaboirar](https://github.com/yaboirar).
+[Home](../README.md) · [Download](https://github.com/yaboirar/Anemorph/releases/latest) · [Report a problem](https://github.com/yaboirar/Anemorph/issues)
 
-**Home** is for browsing and renaming. **Settings** contains appearance, highlight color, zoom, and the uninstall button at the bottom. **Configuration** contains naming rules, detection, season/manual numbering, and folder options. Home's filter menu narrows the file list without leaving your files. Nothing highlighted means all supported video types are shown. Choose any combination of containers to show their matching files. Each choice toggles independently. Select all / Unselect all controls all visible choices; Shift-click selects or clears a range.
+</div>
 
-**Configuration → Home filter options** controls which choices appear in Home's filter menu. MKV, MP4, MOV, AVI, WebM, and M4V are enabled by default. These configuration switches control menu visibility; Home's selections control the active filter. Turning off a choice removes it from the menu and clears that choice if it was active. With no active Home filter, all supported containers are shown, including types that are not listed in the menu.
+---
 
-Right-click a file to **Mark as movie**, **Mark as episode**, or return to **Use automatic detection**. Mark as episode preserves recognized numbers. If a number is missing, a small Season/Episode dialog lets you supply it; for a selection, known numbers stay unchanged and only unnumbered files receive the new sequence. Marking changes the preview, not the filename. Manual marks are saved locally and follow a successful rename or Undo. Right-clicking a highlighted selection applies the mark to that selection; otherwise it applies to the clicked file.
+## Your first rename
 
-Drag the dividers in the table header to resize the filename and status columns. Widths are remembered, and double-clicking a divider resets it. The layout adapts to window size.
+1. Install **Anemorph-Setup-0.0.3.exe**, or extract the portable ZIP and open **Anemorph.exe**.
+2. Browse for a folder, paste its path, or drag it into the window.
+3. Check the suggested series name. Edit it, or use its refresh icon to restore the name detected from the folder.
+4. Review the **New filename** column and check the files you want to include.
+5. Click **Rename**. **Undo last batch** restores the previous names while the files are still unchanged.
 
-For selection, use Shift-click for a range, Ctrl-click for individual rows, Ctrl+A to highlight all rows, or Space to include/exclude highlighted rows. The header checkbox controls all ready files; **Unselect all** clears the selection.
+Only filenames change. The app does not convert or re-encode your videos.
 
-## Your own filename format
+| Page | What it's for |
+| :--- | :--- |
+| **Home** | Open files, review new names, select files, and rename |
+| **Configuration** | Set filename formats, detection rules, folder options, and visible filter choices |
+| **Settings** | Change language and appearance, manage Explorer integration, repair, or uninstall |
 
-Open **Configuration → Filename format → Episodes**, edit the formats, check the examples, then click **Apply**. Episode and movie formats share one panel and one Apply/Reset row. Anemorph adds the series name and original extension for you.
+Click **Anemorph** in the bottom-left corner to open About. The version is shown beneath the app name.
 
-| Token | Meaning |
-| --- | --- |
-| `[S]`, `[Season]` | Literal `S` or `Season` |
-| `[E]`, `[Episode]` | Literal `E` or `Episode` |
+---
+
+## Open videos from File Explorer
+
+Select one or several supported videos, right-click, and choose **Rename with Anemorph**. If Anemorph is already running, the selection goes to that window.
+
+**Those files arrive checked, including files detection cannot identify.** Being checked does not make an invalid filename ready to rename. Mark the file as an episode or movie to supply missing information, or leave it out.
+
+Only the selected files are loaded. Refreshing, filtering, renaming, and undo keep that scope. Browse or enter a folder to return to folder mode.
+
+### Choose the right-click menu
+
+On Windows 11, open **Settings > Integration** to enable **First right-click menu**. Windows may ask for administrator approval to trust the included Anemorph development certificate in **Trusted People**. Cancelling keeps the option under **Show more options**.
+
+The portable ZIP does not install Explorer integration. The installer adds it for supported video types without changing your default video player.
+
+---
+
+## Select and filter
+
+| Action | Control |
+| :--- | :--- |
+| Include or exclude a file | Its checkbox |
+| Include or exclude highlighted rows | **Include**, **Exclude**, or Space |
+| Highlight a range | Shift-click |
+| Highlight individual rows | Ctrl-click |
+| Highlight every row | Ctrl+A |
+| Check or clear files together | The header checkbox or **Select all / Unselect all** |
+
+Checkmarks and highlighted rows are separate: highlighting chooses which rows an action applies to; checkmarks choose files to include in a rename. Files without a valid new name are not renamed.
+
+Drag a column divider to resize it. Double-click the divider to reset its width.
+
+### Filter by video type
+
+On Home, open the filter icon and choose any combination of types. **No active filter means all supported video types.** Select all / Unselect all controls the visible choices; Shift-click selects or clears a range.
+
+**Configuration > Home filter options** controls which choices appear in that menu. MKV, MP4, MOV, AVI, WebM, and M4V are shown by default. Hiding a choice also clears its active filter. It does not remove support for that video type.
+
+---
+
+## Your filename formats
+
+Open **Configuration > Filename format**. Episodes and movies have separate inputs in the same panel. Edit a format, check its example, and click **Apply**.
+
+### Episodes
+
+Anemorph adds the series name and original extension. These indexes control the part between them:
+
+| Format index | Meaning |
+| :--- | :--- |
+| `[S]`, `[Season]` | The text `S` or `Season` |
+| `[E]`, `[Episode]` | The text `E` or `Episode` |
 | `[SeaNum]` | Season number |
 | `[EpsNum]` | Episode number |
-| `[Num]` | Use at least two digits for following number indexes: `01`, `09` |
+| `[Num]` | Use at least two digits for following numbers: `01`, `09` |
 | `[FixNum]` | Use numbers without leading zeros: `1`, `9` |
-| `[Space]` | Insert one space |
-
-Choose `[Num]` or `[FixNum]` before inserting numbers. That choice stays active until you change it. Plain text and punctuation are kept.
-
-| Format | Example output |
-| --- | --- |
-| `[Num][S][SeaNum][E][EpsNum]` | `My Show S01E09.mkv` |
-| `[FixNum][S][SeaNum][Space][E][EpsNum]` | `My Show S1 E9.mkv` |
-| `[Num][Episode][Space][EpsNum]` | `My Show Episode 09.mkv` |
-
-### Movie filenames
-
-Files whose names contain the standalone word `Movie` (case-insensitive) are categorized as movies. Movie files use **Configuration → Filename format → Movies**, independently of episode numbering and the series-name field. They do not consume a number in manual episode mode.
-
-The default is `[Movie Name] Movie`: `[Group] Anemorph Movie [1080p].MOV` becomes `Anemorph Movie.MOV`. The title is taken from the filename, with release-group tags, common technical tags, and the movie marker removed. Review the preview when a real title contains the word Movie. Only the original file extension is kept; video data is not inspected or converted.
-
-| Movie index | Meaning |
-| --- | --- |
-| `[Movie Name]` | Cleaned movie title from the filename |
-| `[Movie]` | Literal `Movie` |
 | `[Space]` | One space |
 
-Plain text is supported, and movie format changes require **Apply**. Keep the word Movie in the result if you want automatic movie classification when loading the renamed files again. A movie title that cannot be determined is skipped for review.
+Choose `[Num]` or `[FixNum]` before inserting numbers. The choice applies to following numbers until changed. Plain text and punctuation are kept.
 
-## A few useful details
+| Format | Example |
+| :--- | :--- |
+| `[Num][S][SeaNum][E][EpsNum]` | `Anemorph S01E09.mkv` |
+| `[FixNum][S][SeaNum][Space][E][EpsNum]` | `Anemorph S1 E9.mkv` |
+| `[Num][Episode][Space][EpsNum]` | `Anemorph Episode 09.mkv` |
 
-Recognized season and episode numbers are preserved, including gaps, even when automatic detection is off. Turning detection off does not renumber your files. Unrecognized files are skipped unless you explicitly enable **Number unrecognized files sequentially** in Configuration; this opt-in fills only files without recognized numbering.
+### Movies
 
-Unchanged filenames show **No change** and are excluded from Rename. Files successfully renamed in the current session show **Done**, including after refreshing the file list. Undo clears that completed state. **Title changed** means the episode suffix stays the same but the series-name text changes. Season/episode pairs such as `S3 - 23` are recognized as `S03E23`.
+A standalone `Movie` marker in a filename identifies a movie, regardless of letter case. You can also right-click a file and choose **Mark as movie**.
 
-Preview first, especially when filenames are unusual. If a season cannot be detected, Anemorph uses the fallback season in Configuration. Ambiguous files and filename conflicts are flagged for review.
+| Format index | Meaning |
+| :--- | :--- |
+| `[Movie Name]` | Cleaned title taken from the filename |
+| `[Movie]` | The text `Movie` |
+| `[Space]` | One space |
 
-Undo history survives closing the app. New batches record file identity, size, and modification time, so Undo stops if a file was replaced or changed. An interrupted batch can be recovered through Undo before starting another batch. Keep your own backups for important files; recovery cannot guarantee protection from storage failure or outside changes during a batch.
+The default `[Movie Name] Movie` turns `[Group] Anemorph Movie [1080p].mp4` into `Anemorph Movie.mp4`. Movie names do not use the series-name field or consume episode numbers.
 
-Settings, manual media marks, and undo history are stored in `%LOCALAPPDATA%\EpisodeRenamer`. That folder name is retained for compatibility with earlier builds. The files contain local paths, so avoid uploading them in bug reports. Remembering the last folder is optional.
+Review titles containing the word Movie, since that word is also a detection marker. Keeping a Movie marker in the result helps automatic detection when you load it again. Episode-only indexes cannot be used in movie formats, and vice versa.
 
-The interface uses Arial Bold from Windows for the app name, with a fallback if unavailable. No proprietary font file is bundled. Rounded window corners depend on Windows support.
+---
 
-## Windows installation and Explorer menu
+## When detection needs help
 
-The installer adds Anemorph to **Installed apps** and the Start menu for your Windows account. Choose the installation drive/folder on **Choose Install Location**, using its path field or **Browse**. A desktop shortcut is optional.
+Right-click a file or highlighted selection:
 
-If Anemorph is already installed, setup first offers **Repair / reinstall** or **Uninstall**. Repair replaces the app files and restores its shortcuts and integration; it can also move the installation to a different folder. Settings stay unless you select **Reset settings for a fresh start**. Repair works even if app files or the old uninstaller are missing or damaged.
+| Choice | What it does |
+| :--- | :--- |
+| **Mark as movie** | Uses the movie filename format |
+| **Mark as episode** | Keeps recognized numbers and asks for missing ones |
+| **Use automatic detection** | Removes your manual classification |
 
-Uninstall removes the app files, shortcuts, Explorer registration, and all Anemorph data in `%LOCALAPPDATA%\EpisodeRenamer`, including settings, undo history, media markers, and pending selections. Your videos and unrelated files are kept. If Windows locks an app file, cleanup reports the problem and allows retry rather than claiming a complete uninstall. Close Anemorph before repair or uninstall.
+For multiple episodes, known numbers stay unchanged; only unnumbered files receive the sequence you enter. Marking changes the preview first. Marks are saved locally and follow a successful rename or undo.
 
-You can also open the same uninstaller from the bottom of **Settings**. Anemorph closes before the uninstaller begins; Windows shows its uninstall confirmation before removing anything. Cleanup scans recorded previous installation folders and exact Anemorph executable entries in the per-user app-name and compatibility caches. Unrelated files and other apps' cache entries are kept. Windows-managed shared logs are outside this cleanup's scope; a zero-trace guarantee is not made.
+Recognized episode numbers and gaps are preserved even with automatic detection off. **Number unrecognized files sequentially** is a separate, optional setting. The fallback season is used when no season is found.
 
-File Explorer integration is built into Anemorph and installed automatically. It adds **Rename with Anemorph** for the supported video extensions. On Windows 11, right-click a video and choose **Show more options** to find it. Select multiple videos to open them together in one preview. Other files are excluded from the command. Your default video player stays unchanged.
+### Understand the status
 
-To put Anemorph on Windows 11's first right-click menu, open **Settings > Integration** and click **Enable** beside **First right-click menu**. Anemorph handles registration. If the included development certificate needs trust, Windows asks for administrator approval; this adds only the embedded Anemorph signing certificate to the computer's Trusted People store. Cancelling keeps the classic menu available. **Disable** switches back. Uninstall removes a certificate added by this feature and may request administrator approval for that cleanup; it leaves pre-existing certificate trust alone.
+| Status | Meaning |
+| :--- | :--- |
+| **Ready** | A valid new filename is available |
+| **Title changed** | The series title changes while the episode suffix stays the same |
+| **No change** | The filename already matches; no rename is needed |
+| **Done** | Renamed successfully in this session |
+| **Skipped** | Information is missing or a valid name could not be generated |
+| **Name conflict** | The proposed filename would conflict with another file |
 
-The first Windows 11 menu uses the optional signed identity package described below. If the package is missing or Windows cannot trust or register it, installation still completes with the classic menu. Certificate trust is not required to use Anemorph. Repair and uninstall unregister Anemorph's identity before replacing or removing its files.
+---
 
-Opening a selection loads only those files. Refresh, container filtering, rename, and undo retain that scope. Browse or enter a folder to return to folder mode. Modern integration launches its host on demand. Classic mode keeps a small menu host in your user session, sleeping while idle; it starts at sign-in and closes during uninstall. Neither mode loads Anemorph code into Explorer or renames anything before you click **Rename**.
+## Undo and recovery
 
-This local installer is unsigned. Windows may display an unknown-publisher or SmartScreen prompt. It does not install a signing certificate or change Windows security settings.
+Undo history survives closing the app. Undo checks file identity, size, and modification time, and stops if a file was changed or replaced. An interrupted batch can be recovered through Undo before starting another one.
 
-Explorer integration runs in Anemorph's own process. Uninstall closes that host and removes its registration without restarting Explorer. A legacy DLL left by an older build is reported if Windows still has it loaded; removal stops safely rather than forcing Explorer to close.
+Keep backups of important files. Undo cannot protect against storage failure or unrelated changes made during a batch.
 
-## Recovery
+**Settings > Integration > Repair Anemorph** reloads saved preferences, clears temporary interface state, checks the current folder again, and repairs Explorer registration. It preserves videos, history, and file marks. Unapplied color and format edits return to saved values. Missing or damaged app files require the installer's **Repair / reinstall** option.
 
-Settings > Integration > Repair Anemorph reloads saved preferences, clears temporary UI state, rescans the current folder, and repairs Explorer menu registration. It preserves rename history, file markers, and your videos. Unapplied format and color edits are replaced by their saved values. Missing application binaries still require running setup's Repair option.
+---
 
-Turning off Animations keeps navigation tabs as icons without expanding labels. Click Anemorph in the bottom-left corner to open About.
+## Installation and removal
 
-## Interface language
+| Task | What to expect |
+| :--- | :--- |
+| Install | Choose the destination folder; Start menu and Installed apps entries are added |
+| Reinstall | Choose **Repair / reinstall** or **Uninstall**; settings stay unless you choose a reset |
+| Uninstall | Removes Anemorph files, settings, history, marks, pending selections, shortcuts, and registration |
+| Locked files | Reports the problem rather than forcing File Explorer to close |
 
-Choose Settings > Language. Available languages are English (US), English (UK), Russian, Spanish, Portuguese, Turkish, German, Japanese, Korean, Simplified Chinese, and Modern Standard Arabic. The choice is saved immediately. File paths, filenames, and format indexes remain literal. Windows dialogs and detailed operating-system errors use Windows' own language.
+You can open Uninstall from Settings or Windows Installed apps. Your videos and unrelated files are kept. Cleanup includes recorded previous install folders and exact Anemorph cache entries, but cannot promise removal of all Windows-managed records.
 
-Appearance contains the highlight color picker. Both Repair and Uninstall are in one panel under Integration. On Home, file and selection counts sit immediately before the refresh and filter icons. Episode and movie formats each have their own Format index; indexes from the other format are rejected.
+The installer is unsigned, so Windows may show an unknown-publisher or SmartScreen warning. Installing alone does not add certificate trust. The first-menu feature separately asks for approval if trust is needed; uninstall removes trust added by that feature and leaves pre-existing trust alone.
+
+<details>
+<summary><strong>Local settings and language details</strong></summary>
+
+Settings, file marks, and undo history are stored in `%LOCALAPPDATA%\EpisodeRenamer`. The folder name is retained for compatibility. These files contain local paths, so do not upload them in bug reports.
+
+Choose **Settings > Language** for English (US/UK), Russian, Spanish, Portuguese, Turkish, German, Japanese, Korean, Simplified Chinese, or Modern Standard Arabic. The choice is saved immediately. Filenames and format indexes remain literal; Windows dialogs use Windows' language.
+
+Appearance includes highlight color and zoom. Turning animations off keeps the top tabs as icons. Arial Bold and other language fonts are loaded from Windows when available; no Windows or LEMON MILK font is bundled. Rounded corners depend on Windows support.
+
+</details>
+
+---
+
+[Back to Anemorph](../README.md) · [Report a problem](https://github.com/yaboirar/Anemorph/issues)

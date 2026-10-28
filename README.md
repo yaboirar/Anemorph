@@ -39,10 +39,10 @@ Anemorph changes filenames only. It never converts, re-encodes, or uploads your 
 
 ## How it works
 
-Every rename follows the same four steps, and nothing touches your disk until the last one.
+Every rename follows the same four steps. Your video filenames stay unchanged until the last one.
 
 1. **Open a folder.** Browse for it, paste its path, or drag it into the window.
-2. **Detect.** Anemorph reads each file and works out whether it is an episode or a movie and which episode number it holds.
+2. **Detect.** Anemorph reads the filenames to identify episodes, movie markers, and episode numbers.
 3. **Review.** Original and new names sit side by side. Include or exclude any file, fix anything detection missed, and resolve conflicting names before you continue.
 4. **Rename.** One click applies the batch. If it isn't what you wanted, **Undo last batch** restores the previous names.
 
@@ -68,7 +68,7 @@ You control spacing and zero-padding for episode numbers, and the choice is save
 Compare original and new names in one table. Include or exclude files individually, and see conflicting names flagged before you commit.
 
 **Episode numbers stay true**
-Anemorph never renumbers. If you own episodes 1, 4, and 19, they stay 1, 4, and 19. Gaps in your collection stay gaps.
+Anemorph keeps recognized numbers. If you own episodes 1, 4, and 19, they stay 1, 4, and 19. Numbering unrecognized files in sequence is a separate option you choose to enable.
 
 **Manual override when detection misses**
 Right-click any file to mark it as a movie or an episode and supply a missing episode number.
@@ -106,6 +106,8 @@ English (US/UK), Russian, Spanish, Portuguese, Turkish, German, Japanese, Korean
 ## Start from File Explorer
 
 Select your videos, right-click, and choose **Rename with Anemorph**. Anemorph opens with those files ready to preview.
+
+**Updated in the latest 0.0.3 patch:** selections open in your existing Anemorph window. Files stay checked even when detection cannot identify an episode or movie, including after refresh. Files without a valid new name remain skipped until you resolve them.
 
 ![Rename with Anemorph in the Windows 11 right-click menu](assets/screenshots/explorer-menu.png)
 
@@ -169,7 +171,7 @@ They stay missing. Anemorph keeps the numbers your files already have and never 
 <details>
 <summary><strong>Does it work on macOS or Linux?</strong></summary>
 
-Anemorph is a Windows app. You can [build from source](docs/building.md) to see what's involved on other platforms.
+Anemorph currently supports Windows only. Building the source does not add macOS or Linux support.
 
 </details>
 

@@ -3,6 +3,7 @@ mod containers;
 mod elevation;
 mod engine;
 mod i18n;
+mod instance;
 mod integration;
 mod naming;
 mod perf;
@@ -36,7 +37,7 @@ impl Page {
         }
     }
 }
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 enum StartupSelection {
     Request(PathBuf),
     Files(Vec<PathBuf>),
@@ -203,6 +204,7 @@ impl App {
         restore_folder: bool,
         native_window: Option<usize>,
     ) -> Self {
+        instance::attach(ctx);
         let data = smoke
             .as_ref()
             .map(|p| p.join("settings"))
@@ -423,6 +425,8 @@ impl App {
         self.open(PathBuf::from(path), true, ctx);
     }
     fn request_selection(&mut self, selection: StartupSelection, ctx: &Context) {
+        self.folder_due = None;
+        self.plan_due = None;
         let (tx, rx) = mpsc::channel();
         let context = ctx.clone();
         self.receiver = Some(rx);
@@ -510,6 +514,9 @@ impl App {
     }
     fn rebuild(&mut self) {
         self.plan_due = None;
+        if self.selected_files.is_some() {
+            self.keep_selection = true;
+        }
         let Some(root) = &self.root else { return };
         self.dirty = true;
         if self.preview.is_some() {
@@ -560,15 +567,12 @@ impl App {
                     let previous: std::collections::HashMap<_, _> = self
                         .rows
                         .iter()
-                        .map(|r| (&r.source, (r.included, r.highlighted, r.ready)))
+                        .map(|r| (&r.source, (r.included, r.highlighted)))
                         .collect();
                     for row in &mut rows {
-                        if let Some((included, highlighted, was_ready)) = previous.get(&row.source)
-                        {
+                        if let Some((included, highlighted)) = previous.get(&row.source) {
                             row.highlighted = *highlighted;
-                            if *was_ready {
-                                row.included = *included && row.ready;
-                            }
+                            row.included = *included;
                         }
                     }
                 }
@@ -889,6 +893,19 @@ impl App {
             }
         }
     }
+    fn receive_activation(&mut self, ctx: &Context) {
+        if !self.busy
+            && self.preview.is_none()
+            && let Some(selection) = instance::next()
+        {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+            ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+            if let Some(selection) = selection {
+                self.navigate(Page::Home, ctx);
+                self.request_selection(selection, ctx);
+            }
+        }
+    }
     fn execute(&mut self, undo: bool, ctx: &Context) {
         if self.busy || (!undo && self.dirty) {
             return;
@@ -1061,6 +1078,16 @@ fn main() -> eframe::Result {
     } else {
         None
     };
+    let _instance = if smoke.is_none() {
+        match instance::start(&data, selection.clone())
+            .map_err(|e| eframe::Error::AppCreation(Box::new(e)))?
+        {
+            Some(primary) => Some(primary),
+            None => return Ok(()),
+        }
+    } else {
+        None
+    };
     let settings = Settings::load(&data.join("settings.json"));
     let icon = eframe::icon_data::from_png_bytes(include_bytes!("../assets/icon.png"))
         .expect("Embedded icon");
@@ -1173,7 +1200,11 @@ mod tests {
         let root =
             std::env::temp_dir().join(format!("anemorph-import-selection-{}", std::process::id()));
         std::fs::create_dir_all(&root).unwrap();
-        let files = vec![root.join("Show S01E01.mkv"), root.join("Raw S01E04.mp4")];
+        let files = vec![
+            root.join("Show S01E01.mkv"),
+            root.join("Raw S01E04.mp4"),
+            root.join("2026-10-26 22-10-06.mp4"),
+        ];
         for path in files
             .iter()
             .chain(std::iter::once(&root.join("Other S01E19.mkv")))
@@ -1189,15 +1220,32 @@ mod tests {
             std::thread::sleep(Duration::from_millis(2));
         }
         assert!(!a.busy);
-        assert_eq!(a.rows.len(), 2);
+        assert_eq!(a.rows.len(), 3);
         assert!(
             a.rows
                 .iter()
                 .all(|r| files.contains(&r.source) && r.included && r.highlighted)
         );
-        assert_eq!(a.row_counts().2, 2);
+        assert_eq!(a.row_counts().2, 3);
         assert_eq!(a.row_counts().1, 1);
         assert!(a.rows.iter().any(|r| r.status == "No change" && !r.ready));
+        assert!(a.rows.iter().any(|r| r.status == "Skipped" && r.included));
+        a.refresh_series();
+        assert!(a.rows.iter().all(|r| r.included && r.highlighted));
+        let unknown = a.rows.iter().position(|r| r.status == "Skipped").unwrap();
+        a.rows[unknown].included = false;
+        a.rebuild();
+        assert!(!a.rows[unknown].included);
+        a.rows[unknown].included = true;
+        a.open(root.clone(), false, &ctx);
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while a.busy && Instant::now() < deadline {
+            a.poll(&ctx);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert!(!a.busy);
+        assert!(a.rows.iter().all(|r| r.included));
+        assert_eq!(a.rows.len(), 3);
         std::fs::remove_dir_all(root).unwrap();
     }
     #[test]

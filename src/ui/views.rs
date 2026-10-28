@@ -1153,6 +1153,7 @@ impl App {
         let measured = self.smoke.is_some().then(Instant::now);
         self.frames += 1;
         self.poll(ctx);
+        self.receive_activation(ctx);
         if self.integration.pending {
             self.integration.poll(None, ctx);
         }

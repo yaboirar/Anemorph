@@ -1,6 +1,22 @@
+<div align="center">
+
 # Changelog
 
+**What's changed in Anemorph.**
+
+[Home](README.md) · [Download](https://github.com/yaboirar/Anemorph/releases/latest) · [User guide](docs/usage.md)
+
+</div>
+
+---
+
 ## 0.0.3 - 2026-10-28
+
+### Latest 0.0.3 patch
+
+- Keep Explorer-imported files checked even when no episode or movie is recognized, including after refreshes. Manual checkmark changes are preserved.
+- Send new Explorer selections to the running Anemorph window instead of opening a second one, including across normal and Windows package launches.
+- Check the handoff between separate processes without desktop control. All 74 automated tests pass; the version remains 0.0.3.
 
 ### Updated 0.0.3 downloads
 

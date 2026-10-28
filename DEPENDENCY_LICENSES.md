@@ -1,4 +1,14 @@
+<div align="center">
+
 # Dependency licenses
+
+**Original license texts for the dependencies included with Anemorph.**
+
+[Home](README.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Code license](LICENSE)
+
+</div>
+
+---
 
 License information and notices from the registry packages in the Windows normal/build dependency graph for Anemorph 0.0.3. Generated from the locked source packages. These licenses apply to their respective dependencies, independently of Anemorph’s MIT license.
 

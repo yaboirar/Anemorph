@@ -1,33 +1,98 @@
-# Building Anemorph
+<div align="center">
 
-You need Windows, a stable Rust toolchain supporting edition 2024, and its Windows linker/build tools. This project has been tested with Rust 1.99.1 and the `x86_64-pc-windows-gnu` toolchain. An MSVC toolchain requires the corresponding Visual Studio C++ build tools for linking.
+# Build from source
 
-From the project folder:
+**Build Anemorph, run its checks, and package a Windows release.**
+
+[Home](../README.md) · [Contributing](../CONTRIBUTING.md) · [Test results](performance.md) · [Signing](signing.md)
+
+</div>
+
+---
+
+## What you need
+
+| Tool | Purpose |
+| :--- | :--- |
+| Windows | The app and Explorer integration currently target Windows |
+| Stable Rust with edition 2024 support | Builds the app and helpers |
+| Windows linker and build tools | GNU tools or Visual Studio C++ build tools for your Rust target |
+| NSIS | Packages the installer |
+| Windows SDK tools | Needed when building the optional Windows 11 menu identity |
+
+The project has been tested with Rust 1.99.1 and `x86_64-pc-windows-gnu`. Using an MSVC target requires its corresponding Visual Studio build tools.
+
+## Build the app
+
+From the repository folder:
 
 ```powershell
 cargo build --release --locked --workspace
 ```
 
-Your executable will be at `target/release/anemorph.exe`. The workspace also builds the out-of-process Explorer host, `anemorph-broker.exe`, the shared shell library, and the installer-only `anemorph-maintenance.exe` cleanup helper.
+| Output in `target/release` | Purpose |
+| :--- | :--- |
+| `anemorph.exe` | Main app |
+| `anemorph-broker.exe` | Separate Explorer menu host |
+| `anemorph_shell.dll` | Shared shell implementation |
+| `anemorph-maintenance.exe` | Installation and cleanup helper |
 
-To build the installer, install [NSIS](https://nsis.sourceforge.io/Download), put `makensis.exe` on PATH, and run `installer/build.ps1` from PowerShell. The installer appears in `dist/`. The script takes its version from `Cargo.toml` and its registered extensions from `src/containers.rs`. You can supply `-TargetDir` and `-OutputDir` to use other build/output folders. Building the installer does not install the app.
+Normal launches share one window per Windows user/session. A later launch forwards its file selection to that window. The handoff uses a message-only Windows window and a named lock, so Windows package identity does not split it into separate app instances. It does not poll the filesystem while idle.
 
-For the first Windows 11 context menu, also install the Windows SDK build tools and supply a code-signing certificate in your current-user **My** certificate store. Its subject must match `-Publisher` (default `CN=yaboirar`):
+To open specific files:
 
-For a development build with the in-app trust action, export only the public certificate to a `.cer` file, set `ANEMORPH_INTEGRATION_CERT` to its absolute path, and rebuild the workspace before building the identity package. The maintenance helper embeds those public certificate bytes, so elevation can trust only that fixed certificate. Never point this variable at a private key or PFX file. Builds signed by an already-trusted publisher do not need the development trust action.
+```powershell
+target\release\anemorph.exe --files "C:\Videos\Anemorph S01E01.mkv" "C:\Videos\Recording.mp4"
+```
+
+---
+
+## Build the installer
+
+Install [NSIS](https://nsis.sourceforge.io/Download), put `makensis.exe` on PATH, and run:
+
+```powershell
+.\installer\build.ps1
+```
+
+The installer appears in `dist/`. Its version comes from `Cargo.toml`; registered video types come from `src/containers.rs`. Building does not install the app.
+
+| Option | Use |
+| :--- | :--- |
+| `-TargetDir` | Choose the Cargo output directory |
+| `-OutputDir` | Choose where the installer is written |
+| `-SkipBuild` | Package binaries already built |
+| `-ModernPackage` | Include the signed Windows 11 menu identity |
+| `-ReleaseCertificateThumbprint` | Sign using a verified publisher certificate |
+| `-SignTool` | Supply the Windows SDK signing tool path |
+
+### Optional first right-click menu
+
+This needs the Windows SDK and a code-signing certificate in the current user's **My** certificate store. Its subject must match `-Publisher` (default `CN=yaboirar`).
 
 ```powershell
 .\installer\build-modern.ps1 -SdkBin "C:\path\to\Windows SDK\x64" -TargetDir target -CertificateThumbprint "YOUR_SIGNING_CERTIFICATE_THUMBPRINT"
 .\installer\build.ps1 -SkipBuild -TargetDir target -ModernPackage target\modern-integration\Anemorph.identity.msix
 ```
 
-The identity package references the externally installed app and menu host, so installation-folder selection still works. The installer validates that its handler and version match the app, registers it for the current user on Windows 11, and removes it on uninstall. It does not add a trusted certificate or change Windows security policy. Windows must already trust the signing certificate. Production releases need a trusted signing certificate; a self-signed development certificate is useful only on machines whose owner explicitly trusts it. Never commit private signing keys or export them into release packages. Running `build-modern.ps1` without a thumbprint creates an unsigned package for inspection, which the installer refuses to bundle as a signed release.
+The identity package references the externally installed app, so users can still choose an install folder. The installer checks the handler and version, registers the package, and removes it during uninstall.
 
-To open an explicit selection from a terminal:
+Windows must trust the signing certificate. A self-signed certificate is for development and works only where its owner explicitly approves trust. Running `build-modern.ps1` without a thumbprint creates an unsigned inspection package that the installer refuses to bundle as signed.
 
-```powershell
-anemorph.exe --files "C:\Videos\Show S01E01.mkv" "C:\Videos\Show S01E02.mp4"
-```
+<details>
+<summary><strong>Development certificate setup</strong></summary>
+
+For builds with the in-app trust action, export only the public certificate to a `.cer` file. Set `ANEMORPH_INTEGRATION_CERT` to its absolute path and rebuild the workspace before building the identity package.
+
+The maintenance helper embeds those public bytes, limiting its trust action to that certificate. Never supply or commit a private key or PFX file. Builds signed by an already-trusted publisher do not need this development trust action.
+
+</details>
+
+For production signing, see the [signing guide](signing.md).
+
+---
+
+## Run the checks
 
 ```powershell
 cargo fmt --all --check
@@ -35,21 +100,29 @@ cargo clippy --workspace --locked --all-targets -- -D warnings
 cargo test --workspace --locked
 ```
 
-For an isolated UI smoke test or performance benchmark, use a **dedicated scratch directory**. These commands generate their own fixture files and reports:
+The automated activation test launches a second test process and checks that its selection reaches the first process without acquiring another primary lock. It does not control the desktop.
+
+### Performance checks
+
+**Use a dedicated scratch directory.** These commands create disposable fixtures and reports. Never point them at a real media folder.
 
 ```powershell
-target\release\anemorph.exe --smoke-test C:\Temp\Anemorph-smoke
 target\release\anemorph.exe --benchmark C:\Temp\Anemorph-benchmark
+target\release\anemorph.exe --smoke-test C:\Temp\Anemorph-smoke
 ```
 
-The table renders visible rows only. File scanning, renaming, and large previews run on worker threads; repeated preview edits are coalesced. The interface sleeps when idle and keeps animations short.
+| Command | Checks |
+| :--- | :--- |
+| `--benchmark` | Scanning, previews, rename/undo, and repeated-preview memory samples |
+| `--smoke-test` | Interface paths, screenshots, and drawing measurements |
+| `--renderer=wgpu` | Earlier DX12 renderer for diagnosis |
+| `--renderer=glow` | Earlier OpenGL renderer for diagnosis |
+| `--software-rendering` | Earlier DX12 WARP path, not the current default renderer |
 
-## Constrained performance checks
+Normal startup draws into a CPU pixel buffer without creating a GPU device. The table builds only visible rows, scans and large previews use background workers, and the interface sleeps when idle.
 
-Normal startup draws the interface into a CPU pixel buffer without creating a GPU device. Run `Anemorph.exe --smoke-test <isolated-output-directory>` to test this default path. The optional `--renderer=wgpu` and `--renderer=glow` switches retain the earlier renderers for diagnosis. `--software-rendering` selects the earlier DX12 WARP path, not the new default.
+Smoke settings are isolated inside the output directory. Reports include `graphics.json` and `smoke.json`. Restricting a test process to two logical processors limits concurrency; it does not emulate an older CPU, slow disk, or limited RAM. See [measurements and limits](performance.md).
 
-Use `Anemorph.exe --benchmark <isolated-output-directory>` for scans, preview throughput, rename/undo, and thirty repeated-preview private-memory samples. Only disposable fixture files in that output directory are modified.
+---
 
-Use `Anemorph.exe --smoke-test <isolated-output-directory> --software-rendering` to exercise the UI on a CPU graphics adapter. `graphics.json` records the actual selected adapter. Limit only the test process to two logical processors for constrained runs. Affinity limits concurrency; it does not emulate an older CPU, slower storage, or lower memory bandwidth.
-
-Smoke settings are isolated under the test output directory. A `Language` setting can be supplied there to verify script rendering without changing the user's preferences. Reports are measurements of the tested host, not a universal minimum-spec guarantee.
+[Contributing](../CONTRIBUTING.md) · [Signing a release](signing.md) · [Back to Anemorph](../README.md)
