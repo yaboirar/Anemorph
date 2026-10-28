@@ -10,12 +10,6 @@ Anemorph is a free, open-source Windows app that renames anime episodes, TV show
 
 ---
 
-## Contents
-
-[The problem](#the-problem) · [How it works](#how-it-works) · [Your naming style](#your-naming-style) · [Features](#features) · [Install](#install) · [File Explorer](#start-from-file-explorer) · [Configuration](#configuration) · [FAQ](#faq) · [Troubleshooting](#troubleshooting) · [Project](#project)
-
----
-
 ## The problem
 
 Downloaded episodes arrive with release-group tags, resolution labels, and inconsistent numbering. Renaming a season by hand is slow, and one typo can break your library order. Generic batch renamers make you write patterns, and they rarely understand the difference between an episode and a movie.
