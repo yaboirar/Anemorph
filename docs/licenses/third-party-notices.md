@@ -25,7 +25,7 @@ The installer uses unmodified NSIS components, including Modern UI, the System p
 
 ## Anemorph logo
 
-`assets/icon.png` is the cropped Anemorph logo supplied by the maintainer for use in the app and public repository. `assets/icon.ico` is generated from that PNG; `assets/icon.svg` retains the corresponding vector artwork with matching crop bounds. They replace the previously supplied Genshin Impact Anemo emblem in the application, installer, and Explorer icon. No separate artwork license has been specified; the source-code MIT license does not automatically grant additional logo rights. Older Explorer-menu screenshots may show earlier branding.
+`assets/icon.png` is the cropped Anemorph logo supplied by the maintainer for use in the app and public repository. `assets/icon.ico` is generated from that PNG; `assets/icon.svg` retains the corresponding vector artwork with matching crop bounds. They replace the previously supplied Genshin Impact Anemo emblem in the application, installer, and Explorer icon. No separate artwork license has been specified; the source-code MIT license does not automatically grant additional logo rights.
 
 ## Fonts
 

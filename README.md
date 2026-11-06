@@ -111,7 +111,7 @@ Select your videos, right-click, and choose **Rename with Anemorph**. Anemorph o
 
 **Updated in the latest 0.0.3 patch:** selections open in your existing Anemorph window. Files stay checked even when detection cannot identify an episode or movie, including after refresh. Files without a valid new name remain skipped until you resolve them.
 
-![Rename with Anemorph in the Windows 11 right-click menu](assets/screenshots/explorer-menu.png)
+![Rename with Anemorph in the Windows 11 right-click menu](assets/screenshots/explorer-menu.png?v=cropped-logo)
 
 On Windows 11, **Settings > Integration** lets you choose between the first right-click menu and **Show more options**. Enabling the first-menu option may require Windows approval.
 
