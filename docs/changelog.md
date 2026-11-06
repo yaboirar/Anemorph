@@ -14,7 +14,8 @@
 
 ### Latest 0.0.3 patch
 
-- Replace the app, installer, Explorer icon, and subtle in-app logo with the maintainer's supplied Anemorph SVG.
+- Use the maintainer's cropped Anemorph logo for the app, installer, Explorer icon, and subtle in-app branding.
+- Move the subtle logo slightly right and refresh the README app screenshot with the current interface.
 - Add `[Series Name]`, `[Episode Name]`, and `[Original Name]` to complete filename formats.
 - Detect episode titles from filenames and add a right-click editor for individual episode titles.
 - Preserve saved format output through migration; keep original file extensions and existing episode numbers.

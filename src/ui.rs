@@ -1292,7 +1292,7 @@ fn brand_rect(viewport: Rect, zoom: f32) -> Rect {
     let window = viewport.size() * zoom;
     let size = (window.x * 0.18).min(window.y * 0.28).clamp(80., 200.) / zoom;
     Rect::from_min_size(
-        viewport.min + Vec2::new(-20., -12.) / zoom,
+        viewport.min + Vec2::new(24., -12.) / zoom,
         Vec2::splat(size),
     )
 }
