@@ -1,5 +1,5 @@
 //! Compile the user's episode format once, then reuse it for each file.
-pub const DEFAULT_FORMAT: &str = "[Num][S][SeaNum][E][EpsNum]";
+pub const DEFAULT_FORMAT: &str = "[Series Name][Space][Num][S][SeaNum][E][EpsNum]";
 
 pub const DEFAULT_MOVIE_FORMAT: &str = "[Movie Name] Movie";
 
@@ -7,6 +7,7 @@ pub const DEFAULT_MOVIE_FORMAT: &str = "[Movie Name] Movie";
 enum MoviePart {
     Text(String),
     Name,
+    OriginalName,
 }
 #[derive(Debug)]
 pub struct MovieFormat {
@@ -35,6 +36,11 @@ impl MovieFormat {
                         has_name = true;
                     }
                     "Movie" => parts.push(MoviePart::Text("Movie".into())),
+                    "Original Name" => {
+                        parts.push(MoviePart::OriginalName);
+                        has_name = true;
+                    }
+                    "Num" | "FixNum" => {}
                     "Space" => parts.push(MoviePart::Text(" ".into())),
                     token => return Err(format!("Unknown movie index [{token}].")),
                 }
@@ -50,28 +56,56 @@ impl MovieFormat {
             }
         }
         if !has_name {
-            return Err("Include [Movie Name] so each movie keeps its title.".into());
+            return Err(
+                "Include [Movie Name] or [Original Name] so each movie keeps its title.".into(),
+            );
         }
         Ok(Self { parts })
     }
+    #[cfg(test)]
     pub fn render(&self, name: &str) -> String {
+        self.render_name(name, name)
+    }
+    pub fn uses_movie_name(&self) -> bool {
+        self.parts
+            .iter()
+            .any(|part| matches!(part, MoviePart::Name))
+    }
+    pub fn render_name(&self, name: &str, original: &str) -> String {
         let mut output = String::new();
         for part in &self.parts {
             match part {
                 MoviePart::Name => output.push_str(name),
+                MoviePart::OriginalName => output.push_str(original),
                 MoviePart::Text(text) => output.push_str(text),
             }
         }
-        output.trim().to_owned()
+        if self
+            .parts
+            .iter()
+            .any(|p| matches!(p, MoviePart::OriginalName))
+        {
+            output.trim().to_owned()
+        } else {
+            clean_spaces(&output)
+        }
     }
 }
 
 /// Preserve filenames from saved formats created before explicit number tokens.
 /// Old tokens are accepted here only for migration, never by the format editor.
 pub fn migrate_legacy(pattern: &str) -> String {
-    if ["[Num]", "[FixNum]", "[SeaNum]", "[EpsNum]"]
-        .iter()
-        .any(|token| pattern.contains(token))
+    if [
+        "[Num]",
+        "[FixNum]",
+        "[SeaNum]",
+        "[EpsNum]",
+        "[Series Name]",
+        "[Episode Name]",
+        "[Original Name]",
+    ]
+    .iter()
+    .any(|token| pattern.contains(token))
     {
         return pattern.to_owned();
     }
@@ -113,6 +147,9 @@ enum Part {
     Text(String),
     Season(&'static str, bool),
     Episode(&'static str, bool),
+    SeriesName,
+    EpisodeName,
+    OriginalName,
 }
 #[derive(Debug)]
 pub struct Format {
@@ -120,6 +157,7 @@ pub struct Format {
     matcher: regex::Regex,
     season_groups: Vec<usize>,
     episode_groups: Vec<usize>,
+    title_group: Option<usize>,
 }
 impl Format {
     pub fn parse(pattern: &str) -> Result<Self, String> {
@@ -142,6 +180,9 @@ impl Format {
                 match token {
                     "S" | "Season" | "E" | "Episode" => parts.push(Part::Text(token.into())),
                     "Space" => parts.push(Part::Text(" ".into())),
+                    "Series Name" => parts.push(Part::SeriesName),
+                    "Episode Name" => parts.push(Part::EpisodeName),
+                    "Original Name" => parts.push(Part::OriginalName),
                     "Num" => padded = Some(true),
                     "FixNum" => padded = Some(false),
                     "SeaNum" | "EpsNum" => {
@@ -166,8 +207,15 @@ impl Format {
                 remaining = &remaining[end..];
             }
         }
-        if !parts.iter().any(|p| matches!(p, Part::Episode(..))) {
-            return Err("Add [EpsNum] for the episode number.".into());
+        if !parts.iter().any(|p| {
+            matches!(
+                p,
+                Part::Episode(..) | Part::EpisodeName | Part::OriginalName
+            )
+        }) {
+            return Err(
+                "Add [EpsNum], [Episode Name], or [Original Name] to identify each episode.".into(),
+            );
         }
         let mut preceding_number = false;
         for part in &parts {
@@ -185,15 +233,26 @@ impl Format {
                     }
                     preceding_number = true;
                 }
+                Part::SeriesName | Part::EpisodeName | Part::OriginalName => {
+                    preceding_number = false
+                }
             }
         }
         let mut expression = String::new();
         let mut season_groups = Vec::new();
         let mut episode_groups = Vec::new();
         let mut group = 0;
+        let mut title_group = None;
         for part in &parts {
             match part {
+                Part::Text(text) if text.trim().is_empty() => expression.push_str(r"\s*"),
                 Part::Text(text) => expression.push_str(&regex::escape(text)),
+                Part::SeriesName | Part::OriginalName => expression.push_str("(?:.+?)"),
+                Part::EpisodeName => {
+                    expression.push_str("(.*?)");
+                    group += 1;
+                    title_group.get_or_insert(group);
+                }
                 Part::Season(label, _) | Part::Episode(label, _) => {
                     expression.push_str(&regex::escape(label));
                     expression.push_str("([0-9]{1,10})");
@@ -213,6 +272,7 @@ impl Format {
             matcher,
             season_groups,
             episode_groups,
+            title_group,
         })
     }
     /// Recognize previously renamed files so refresh keeps their season intact.
@@ -236,12 +296,42 @@ impl Format {
         };
         Some((season, read(&self.episode_groups)?))
     }
+    #[cfg(test)]
     pub fn render(&self, season: u32, episode: u32) -> String {
+        self.render_name("", "", "", season, episode)
+    }
+    pub fn uses_series_name(&self) -> bool {
+        self.parts.iter().any(|p| matches!(p, Part::SeriesName))
+    }
+    pub fn uses_episode_number(&self) -> bool {
+        !self.episode_groups.is_empty()
+    }
+    pub fn uses_episode_name(&self) -> bool {
+        self.title_group.is_some()
+    }
+    pub fn episode_name<'a>(&self, name: &'a str) -> Option<&'a str> {
+        self.matcher
+            .captures(name)?
+            .get(self.title_group?)
+            .map(|m| m.as_str().trim())
+            .filter(|name| !name.is_empty())
+    }
+    pub fn render_name(
+        &self,
+        series: &str,
+        title: &str,
+        original: &str,
+        season: u32,
+        episode: u32,
+    ) -> String {
         use std::fmt::Write;
         let mut output = String::new();
         for part in &self.parts {
             match part {
                 Part::Text(text) => output.push_str(text),
+                Part::SeriesName => output.push_str(series),
+                Part::EpisodeName => output.push_str(title),
+                Part::OriginalName => output.push_str(original),
                 Part::Season(label, padded) | Part::Episode(label, padded) => {
                     let value = if matches!(part, Part::Season(..)) {
                         season
@@ -257,13 +347,65 @@ impl Format {
                 }
             }
         }
-        output.trim().to_owned()
+        if self.parts.iter().any(|p| matches!(p, Part::OriginalName)) {
+            output.trim().to_owned()
+        } else {
+            clean_spaces(&output)
+        }
     }
+}
+
+fn clean_spaces(output: &str) -> String {
+    let mut clean = String::with_capacity(output.len());
+    for word in output.split_whitespace() {
+        if !clean.is_empty() {
+            clean.push(' ');
+        }
+        clean.push_str(word);
+    }
+    clean
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn complete_names_title_capture_and_original_names() {
+        let format =
+            Format::parse("[Series Name][Space][Num][S][SeaNum][E][EpsNum][Space][Episode Name]")
+                .unwrap();
+        let result = format.render_name("Tamako Market", "She's the Cute Girl", "raw", 1, 9);
+        assert_eq!(result, "Tamako Market S01E09 She's the Cute Girl");
+        assert_eq!(format.detect(&result), Some((Some(1), 9)));
+        assert_eq!(format.episode_name(&result), Some("She's the Cute Girl"));
+        assert_eq!(
+            format.render_name("Tamako Market", "", "raw", 1, 9),
+            "Tamako Market S01E09"
+        );
+        assert_eq!(format.detect("Tamako Market S01E09"), Some((Some(1), 9)));
+        assert_eq!(
+            Format::parse("[Num][Episode][Space][EpsNum]")
+                .unwrap()
+                .render_name("Not added", "", "raw", 1, 9),
+            "Episode 09"
+        );
+        assert_eq!(
+            Format::parse("[Original Name]").unwrap().render_name(
+                "",
+                "",
+                "Original  recording",
+                1,
+                9
+            ),
+            "Original  recording"
+        );
+        assert_eq!(
+            MovieFormat::parse("[Original Name]")
+                .unwrap()
+                .render_name("clean", "Original  movie"),
+            "Original  movie"
+        );
+    }
     #[test]
     fn saved_legacy_formats_keep_their_output() {
         for (old, output) in [
@@ -342,10 +484,10 @@ mod movie_tests {
             "[E]",
             "[Season]",
             "[Episode]",
-            "[Num]",
-            "[FixNum]",
             "[SeaNum]",
             "[EpsNum]",
+            "[Series Name]",
+            "[Episode Name]",
         ] {
             assert!(MovieFormat::parse(&format!("[Movie Name]{index}")).is_err());
         }

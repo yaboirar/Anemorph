@@ -14,6 +14,11 @@
 
 ### Latest 0.0.3 patch
 
+- Replace the app, installer, Explorer icon, and subtle in-app logo with the maintainer's supplied Anemorph SVG.
+- Add `[Series Name]`, `[Episode Name]`, and `[Original Name]` to complete filename formats.
+- Detect episode titles from filenames and add a right-click editor for individual episode titles.
+- Preserve saved format output through migration; keep original file extensions and existing episode numbers.
+- Pass 79 automated tests, including title editing, format migration, refresh, and original-filename handling.
 - Group supporting documents under `docs`, license notices under `docs/licenses`, and Windows build files under `installer`.
 - Keep Explorer-imported files checked even when no episode or movie is recognized, including after refreshes. Manual checkmark changes are preserved.
 - Send new Explorer selections to the running Anemorph window instead of opening a second one, including across normal and Windows package launches.

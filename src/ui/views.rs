@@ -155,8 +155,14 @@ impl App {
                 let ext = first.path.extension().unwrap_or_default().to_string_lossy();
                 ui.label(
                     RichText::new(format!(
-                        "{name} {}.{ext}",
-                        dialog.format.render(dialog.season, dialog.first_episode)
+                        "{}.{ext}",
+                        dialog.format.render_name(
+                            name,
+                            &engine::episode_name(&first.path, &dialog.format),
+                            &first.path.file_stem().unwrap_or_default().to_string_lossy(),
+                            dialog.season,
+                            dialog.first_episode
+                        )
                     ))
                     .monospace()
                     .size(12.)
@@ -192,6 +198,76 @@ impl App {
             self.episode_dialog = None;
         } else if apply {
             self.apply_episode_marker();
+        }
+    }
+    fn episode_title_modal(&mut self, ctx: &Context) {
+        let p = self.palette();
+        let Some(dialog) = self.episode_title_dialog.as_mut() else {
+            return;
+        };
+        let mut close = false;
+        let mut apply = false;
+        let response = egui::Modal::new(Id::new("episode_title"))
+            .frame(
+                egui::Frame::new()
+                    .fill(p.surface)
+                    .stroke(Stroke::new(1_f32, p.line))
+                    .corner_radius(12)
+                    .inner_margin(20.),
+            )
+            .show(ctx, |ui| {
+                ui.set_width((ctx.input(|i| i.content_rect().width()) - 80.).clamp(220., 440.));
+                ui.horizontal(|ui| {
+                    ui.heading(tr(ui.ctx(), "Episode title"));
+                    ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                        let (rect, _) = ui.allocate_exact_size(Vec2::splat(22.), Sense::hover());
+                        if icon_button(ui, rect, "title_close", ActionIcon::Close, p, true, false)
+                            .clicked()
+                        {
+                            close = true;
+                        }
+                    });
+                });
+                ui.label(
+                    RichText::new(
+                        dialog
+                            .path
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy(),
+                    )
+                    .color(p.muted),
+                );
+                ui.add(
+                    egui::TextEdit::singleline(&mut dialog.title)
+                        .desired_width(f32::INFINITY)
+                        .char_limit(255),
+                );
+                ui.label(
+                    RichText::new(tr(ui.ctx(), "Leave empty to omit the episode title."))
+                        .size(12.)
+                        .color(p.muted),
+                );
+                if let Some(error) = &dialog.error {
+                    ui.label(RichText::new(error).color(Color32::from_rgb(242, 158, 152)));
+                }
+                if ui
+                    .add(
+                        egui::Button::new(
+                            RichText::new(tr(ui.ctx(), "Apply")).color(on_color(p.accent)),
+                        )
+                        .fill(p.accent),
+                    )
+                    .clicked()
+                    || ui.input(|i| i.key_pressed(egui::Key::Enter))
+                {
+                    apply = true;
+                }
+            });
+        if close || response.should_close() {
+            self.episode_title_dialog = None;
+        } else if apply {
+            self.apply_episode_title();
         }
     }
     fn color_editor(&mut self, ui: &mut Ui, p: Palette) {
@@ -450,6 +526,7 @@ impl App {
         let row_height = if self.settings.compact { 28. } else { 38. };
         let mut action = None;
         let mut marker_action = None;
+        let mut title_action = None;
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
             .max_height(remaining)
@@ -541,6 +618,13 @@ impl App {
                             marker_action = Some((index, Some(engine::MediaKind::Episode)));
                             ui.close();
                         }
+                        if row.kind == engine::MediaKind::Episode {
+                            ui.separator();
+                            if ui.button(tr(ui.ctx(), "Edit episode title")).clicked() {
+                                title_action = Some(index);
+                                ui.close();
+                            }
+                        }
                         if self
                             .media_markers
                             .contains_key(&engine::media_marker_key(&row.source))
@@ -567,6 +651,9 @@ impl App {
         }
         if let Some((index, kind)) = marker_action {
             self.set_media_marker(index, kind);
+        }
+        if let Some(index) = title_action {
+            self.edit_episode_title(index);
         }
     }
     pub(super) fn settings_ui(&mut self, ui: &mut Ui) {
@@ -774,10 +861,19 @@ impl App {
                         self.series.trim()
                     };
                     ui.label(
-                        RichText::new(format!("{name} {}.mkv", format.render(1, 9)))
-                            .monospace()
-                            .size(12.)
-                            .color(p.muted),
+                        RichText::new(format!(
+                            "{}.mkv",
+                            format.render_name(
+                                name,
+                                "Episode title",
+                                "Anemorph S01E09 Episode title",
+                                1,
+                                9
+                            )
+                        ))
+                        .monospace()
+                        .size(12.)
+                        .color(p.muted),
                     );
                     true
                 }
@@ -813,11 +909,14 @@ impl App {
                     ui.label(
                         RichText::new(format!(
                             "{}.mkv",
-                            format.render(if self.series.trim().is_empty() {
-                                "Anemorph"
-                            } else {
-                                self.series.trim()
-                            })
+                            format.render_name(
+                                if self.series.trim().is_empty() {
+                                    "Anemorph"
+                                } else {
+                                    self.series.trim()
+                                },
+                                "Anemorph Movie"
+                            )
                         ))
                         .monospace()
                         .size(12.)
@@ -1191,6 +1290,7 @@ impl App {
             && !editing_name
             && !self.about_open
             && self.episode_dialog.is_none()
+            && self.episode_title_dialog.is_none()
         {
             if ctx.input_mut(|i| i.consume_key(Modifiers::CTRL, egui::Key::A)) {
                 self.counts.set(None);
@@ -1266,6 +1366,7 @@ impl App {
         }
         self.about_dialog(ctx);
         self.episode_marker_dialog(ctx);
+        self.episode_title_modal(ctx);
         self.smoke_tick(ctx);
         if let Some(start) = measured {
             self.ui_micros += start.elapsed().as_micros();

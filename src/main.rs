@@ -68,6 +68,11 @@ struct EpisodeMarkDialog {
     format: naming::Format,
     error: Option<String>,
 }
+struct EpisodeTitleDialog {
+    path: PathBuf,
+    title: String,
+    error: Option<String>,
+}
 struct App {
     settings: Settings,
     data: PathBuf,
@@ -83,6 +88,7 @@ struct App {
     uninstall_error: String,
     integration: integration::Integration,
     episode_dialog: Option<EpisodeMarkDialog>,
+    episode_title_dialog: Option<EpisodeTitleDialog>,
     native_window: Option<usize>,
     files: Arc<Vec<PathBuf>>,
     selected_files: Option<Arc<Vec<PathBuf>>>,
@@ -253,6 +259,7 @@ impl App {
             uninstall_error: String::new(),
             integration: integration::Integration::default(),
             episode_dialog: None,
+            episode_title_dialog: None,
             native_window,
             files: Arc::new(vec![]),
             selected_files: None,
@@ -340,6 +347,7 @@ impl App {
         self.column_drag = None;
         self.container_anchor = None;
         self.episode_dialog = None;
+        self.episode_title_dialog = None;
         if let Some(root) = self.root.clone() {
             self.open(root, false, ctx);
         }
@@ -676,7 +684,7 @@ impl App {
         for path in paths {
             if let Some(kind) = kind {
                 let key = engine::media_marker_key(&path);
-                let mut marker = markers.get(&key).copied().unwrap_or_else(|| kind.into());
+                let mut marker = markers.get(&key).cloned().unwrap_or_else(|| kind.into());
                 marker.kind = kind;
                 markers.insert(key, marker);
             } else {
@@ -718,10 +726,10 @@ impl App {
             let mut markers = (*self.media_markers).clone();
             for entry in entries {
                 let (season, episode) = entry.numbering.unwrap();
-                markers.insert(
-                    engine::media_marker_key(&entry.path),
-                    engine::MediaOverride::episode(season, episode),
-                );
+                let key = engine::media_marker_key(&entry.path);
+                let mut marker = engine::MediaOverride::episode(season, episode);
+                marker.title = markers.get(&key).and_then(|m| m.title.clone());
+                markers.insert(key, marker);
             }
             if let Err(error) = self.store_media_markers(markers) {
                 self.status = format!("Could not save episode marker: {error}");
@@ -762,14 +770,60 @@ impl App {
                 assigned += 1;
                 (dialog.season, episode)
             };
-            markers.insert(
-                engine::media_marker_key(&entry.path),
-                engine::MediaOverride::episode(season, episode),
-            );
+            let key = engine::media_marker_key(&entry.path);
+            let mut marker = engine::MediaOverride::episode(season, episode);
+            marker.title = markers.get(&key).and_then(|m| m.title.clone());
+            markers.insert(key, marker);
         }
         if let Err(error) = self.store_media_markers(markers) {
             dialog.error = Some(error);
             self.episode_dialog = Some(dialog);
+        }
+    }
+    fn edit_episode_title(&mut self, index: usize) {
+        let Some(row) = self.rows.get(index) else {
+            return;
+        };
+        if row.kind != engine::MediaKind::Episode {
+            return;
+        }
+        let Ok(format) = naming::Format::parse(&self.settings.number_format) else {
+            return;
+        };
+        let title = self
+            .media_markers
+            .get(&engine::media_marker_key(&row.source))
+            .and_then(|m| m.title.clone())
+            .unwrap_or_else(|| engine::episode_name(&row.source, &format));
+        self.episode_title_dialog = Some(EpisodeTitleDialog {
+            path: row.source.clone(),
+            title,
+            error: None,
+        });
+    }
+    fn apply_episode_title(&mut self) {
+        let Some(mut dialog) = self.episode_title_dialog.take() else {
+            return;
+        };
+        let title = dialog.title.trim();
+        if title.encode_utf16().count() > 255
+            || title.chars().any(|c| c < ' ' || "<>:\"/\\|?*".contains(c))
+        {
+            dialog.error = Some(
+                "Use a title of at most 255 characters without Windows filename symbols.".into(),
+            );
+            self.episode_title_dialog = Some(dialog);
+            return;
+        }
+        let mut markers = (*self.media_markers).clone();
+        let marker = markers
+            .entry(engine::media_marker_key(&dialog.path))
+            .or_insert_with(|| engine::MediaKind::Episode.into());
+        marker.kind = engine::MediaKind::Episode;
+        marker.title = Some(title.into());
+        if let Err(error) = self.store_media_markers(markers) {
+            dialog.error = Some(error);
+            self.episode_title_dialog = Some(dialog);
         }
     }
     fn refresh_series(&mut self) {
@@ -1271,6 +1325,50 @@ mod tests {
         a.toggle_all_files();
         assert!(a.rows.iter().all(|r| !r.included));
         assert!(a.rows.iter().all(|r| !r.ready));
+    }
+    #[test]
+    fn manual_episode_title_is_saved_and_kept_when_marking_or_moving() {
+        let mut a = app();
+        let root = std::env::temp_dir().join(format!("anemorph-title-edit-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let source = root.join("Raw S01E09 [1080p].mkv");
+        std::fs::write(&source, b"video unchanged").unwrap();
+        a.data = root.clone();
+        a.root = Some(root.clone());
+        a.files = Arc::new(vec![source.clone()]);
+        a.series = "Anemorph".into();
+        a.settings.number_format =
+            "[Series Name][Space][Num][S][SeaNum][E][EpsNum][Space][Episode Name]".into();
+        a.rebuild();
+        a.edit_episode_title(0);
+        assert!(a.episode_title_dialog.as_ref().unwrap().title.is_empty());
+        a.episode_title_dialog.as_mut().unwrap().title = "餅屋の女の子".into();
+        a.apply_episode_title();
+        assert!(a.episode_title_dialog.is_none());
+        assert_eq!(a.rows[0].output, "Anemorph S01E09 餅屋の女の子.mkv");
+        a.set_media_marker(0, Some(engine::MediaKind::Episode));
+        let key = engine::media_marker_key(&source);
+        assert_eq!(a.media_markers[&key].title.as_deref(), Some("餅屋の女の子"));
+        let mut saved = engine::load_media_markers(&root.join("media-markers.json"));
+        assert_eq!(saved[&key].title.as_deref(), Some("餅屋の女の子"));
+        let target = a.rows[0].target.clone().unwrap();
+        engine::move_media_markers(
+            &mut saved,
+            &[Change {
+                source: source.clone(),
+                target: target.clone(),
+            }],
+        );
+        assert_eq!(
+            saved[&engine::media_marker_key(&target)].title.as_deref(),
+            Some("餅屋の女の子")
+        );
+        a.edit_episode_title(0);
+        a.episode_title_dialog.as_mut().unwrap().title = "bad/name".into();
+        a.apply_episode_title();
+        assert!(a.episode_title_dialog.as_ref().unwrap().error.is_some());
+        assert_eq!(std::fs::read(&source).unwrap(), b"video unchanged");
+        std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
     fn repair_reloads_saved_preferences_without_deleting_user_data() {

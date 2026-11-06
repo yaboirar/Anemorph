@@ -20,6 +20,8 @@ pub struct Settings {
     pub auto_name: bool,
     pub clear_series_on_empty: bool,
     pub number_format: String,
+    #[serde(default)]
+    pub filename_format_version: u8,
     pub movie_format: String,
     pub subfolders: bool,
     pub filter_extensions: Vec<String>,
@@ -49,6 +51,7 @@ impl Default for Settings {
             auto_name: true,
             clear_series_on_empty: true,
             number_format: crate::naming::DEFAULT_FORMAT.into(),
+            filename_format_version: 1,
             movie_format: crate::naming::DEFAULT_MOVIE_FORMAT.into(),
             subfolders: true,
             filter_extensions: Vec::new(),
@@ -169,6 +172,10 @@ impl Settings {
             .retain(|e| s.home_filter_options.contains(e));
         s.zoom_percent = s.zoom_percent.clamp(75, 150);
         s.number_format = crate::naming::migrate_legacy(&s.number_format);
+        if s.filename_format_version == 0 && !s.number_format.contains("[Series Name]") {
+            s.number_format = format!("[Series Name][Space]{}", s.number_format);
+        }
+        s.filename_format_version = 1;
         s.default_season = s.default_season.min(999);
         s.first_episode = s.first_episode.min(9999);
         s.table_name_ratio = s.table_name_ratio.clamp(0.05, 0.95);
@@ -243,7 +250,7 @@ pub fn media_kind(path: &Path) -> MediaKind {
         MediaKind::Episode
     }
 }
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MediaOverride {
     pub kind: MediaKind,
@@ -251,6 +258,8 @@ pub struct MediaOverride {
     pub season: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub episode: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
 }
 impl From<MediaKind> for MediaOverride {
     fn from(kind: MediaKind) -> Self {
@@ -258,6 +267,7 @@ impl From<MediaKind> for MediaOverride {
             kind,
             season: None,
             episode: None,
+            title: None,
         }
     }
 }
@@ -267,9 +277,10 @@ impl MediaOverride {
             kind: MediaKind::Episode,
             season: Some(season),
             episode: Some(episode),
+            title: None,
         }
     }
-    pub fn numbering(self) -> Option<(u32, u32)> {
+    pub fn numbering(&self) -> Option<(u32, u32)> {
         if self.kind == MediaKind::Episode {
             self.season.zip(self.episode)
         } else {
@@ -311,7 +322,7 @@ pub fn save_media_markers(path: &Path, markers: &MediaMarkers) -> Result<(), Str
         .iter()
         .map(|(path, media)| MediaMarker {
             path: path.clone(),
-            media: *media,
+            media: media.clone(),
         })
         .collect();
     let bytes = serde_json::to_vec(&records).map_err(|e| e.to_string())?;
@@ -411,15 +422,64 @@ fn explicit(name: &str) -> Option<(u32, u32)> {
         .or_else(|| CROSS.captures(name))
         .and_then(|c| Some((c["s"].parse().ok()?, c["e"].parse().ok()?)))
 }
+/// Extract only a title associated with a recognized numbering boundary.
+/// Metadata and a second numeric release suffix are not episode titles.
+pub fn episode_name(path: &Path, format: &crate::naming::Format) -> String {
+    static TAGS: LazyLock<Regex> = LazyLock::new(|| {
+        re(
+            r"\[[^\]]*\]|(?i:\((?:BD|BluRay|WEB[- .]?DL|WEBRip|DVDRip|HDRip|Dual[ .]Audio|Multi[ .]Audio|x26[45]|h[ .]?26[45]|HEVC|AV1|AAC|FLAC|[0-9]{3,4}p)[^)]*\))",
+        )
+    });
+    static TECH: LazyLock<Regex> =
+        LazyLock::new(|| re(r"(?i)\b(?:[0-9]{3,4}p|x26[45]|h[ .]?26[45]|hevc|aac|flac)\b"));
+    static VERSION: LazyLock<Regex> = LazyLock::new(|| re(r"(?i)^v\d+(?:\s|[-._]|$)"));
+    let stem = path.file_stem().unwrap_or_default().to_string_lossy();
+    let clean = TAGS.replace_all(&stem, " ");
+    let tail = if let Some(title) = format
+        .episode_name(&stem)
+        .filter(|_| format.uses_episode_number())
+    {
+        title
+    } else if let Some(end) = [&*EXPLICIT, &*SEPARATED, &*CROSS]
+        .into_iter()
+        .chain(EPISODE.iter())
+        .find_map(|pattern| {
+            pattern
+                .captures(&clean)
+                .and_then(|c| c.name("e").map(|m| m.end()))
+        })
+    {
+        &clean[end..]
+    } else if !format.uses_episode_number()
+        && let Some(title) = format.episode_name(&stem)
+    {
+        title
+    } else {
+        return String::new();
+    };
+    let tail = VERSION.replace(tail, " ");
+    let tail = TAGS.replace_all(&tail, " ");
+    let tail = TECH.replace_all(&tail, " ");
+    let title = tail
+        .trim_matches(|c: char| c.is_whitespace() || "-._".contains(c))
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    if title.chars().any(char::is_alphabetic) {
+        title
+    } else {
+        String::new()
+    }
+}
 pub fn recognized_episode(
     path: &Path,
     format: &crate::naming::Format,
     default_season: u32,
 ) -> Option<(u32, u32)> {
     let name = path.file_stem().unwrap_or_default().to_string_lossy();
-    let known = explicit(&name)
-        .map(|(s, e)| (Some(s), e))
-        .or_else(|| format.detect(&name));
+    let known = format
+        .detect(&name)
+        .or_else(|| explicit(&name).map(|(s, e)| (Some(s), e)));
     let episode = known.map(|(_, e)| e).or_else(|| {
         EPISODE
             .iter()
@@ -535,14 +595,15 @@ pub fn plan_with_markers(
     } else {
         None
     };
+    let number_format = crate::naming::Format::parse(&settings.number_format)?;
     if let Some(error) = name_error
+        && number_format.uses_series_name()
         && !files
             .iter()
             .any(|p| marked_media_kind(p, markers) == MediaKind::Movie)
     {
         return Err(error.into());
     }
-    let number_format = crate::naming::Format::parse(&settings.number_format)?;
     let movie_format = crate::naming::MovieFormat::parse(&settings.movie_format)?;
     let mut siblings: HashMap<PathBuf, BTreeSet<u32>> = HashMap::new();
     // Parse each filename once and reuse its result for sibling inference and output.
@@ -561,9 +622,9 @@ pub fn plan_with_markers(
                 return (Some(season), Some(episode), true);
             }
             let n = p.file_stem().unwrap_or_default().to_string_lossy();
-            let known = explicit(&n)
-                .map(|(s, e)| (Some(s), e))
-                .or_else(|| number_format.detect(&n));
+            let known = number_format
+                .detect(&n)
+                .or_else(|| explicit(&n).map(|(s, e)| (Some(s), e)));
             let season = known.and_then(|(s, _)| s);
             let episode = known.map(|(_, e)| e).or_else(|| {
                 if !settings.auto_detect && !manual.is_some_and(|m| m.kind == MediaKind::Episode) {
@@ -603,18 +664,19 @@ pub fn plan_with_markers(
         let mut title_only = false;
         if row.kind == MediaKind::Movie {
             let title = movie_name(p);
-            if title.is_empty() {
+            if title.is_empty() && movie_format.uses_movie_name() {
                 row.output = "Movie title not found".into();
                 rows.push(row);
                 continue;
             }
             row.output = format!(
                 "{}.{}",
-                movie_format.render(&title),
+                movie_format
+                    .render_name(&title, &p.file_stem().unwrap_or_default().to_string_lossy()),
                 p.extension().unwrap_or_default().to_string_lossy()
             );
         } else {
-            if let Some(error) = name_error {
+            if let Some(error) = name_error.filter(|_| number_format.uses_series_name()) {
                 row.output = error.into();
                 row.status = "Needs input".into();
                 rows.push(row);
@@ -644,6 +706,13 @@ pub fn plan_with_markers(
                 }
                 row.assumed = s.is_none();
                 (s.unwrap_or(settings.default_season), ep)
+            } else if !number_format.uses_episode_number() {
+                (
+                    known_season
+                        .or_else(|| folder_season(p.parent().unwrap()))
+                        .unwrap_or(settings.default_season),
+                    0,
+                )
             } else if settings.manual_numbering {
                 let episode = settings
                     .first_episode
@@ -657,7 +726,17 @@ pub fn plan_with_markers(
                 rows.push(row);
                 continue;
             };
-            let suffix = number_format.render(season, episode);
+            let stem = p.file_stem().unwrap_or_default().to_string_lossy();
+            let title = if number_format.uses_episode_name() {
+                markers
+                    .get(&media_marker_key(p))
+                    .and_then(|m| m.title.clone())
+                    .unwrap_or_else(|| episode_name(p, &number_format))
+            } else {
+                String::new()
+            };
+            let output = number_format.render_name(name, &title, &stem, season, episode);
+            let suffix = number_format.render_name("", &title, &stem, season, episode);
             let ending = format!(" {suffix}");
             title_only = p
                 .file_stem()
@@ -666,9 +745,36 @@ pub fn plan_with_markers(
                 .strip_suffix(&ending)
                 .is_some_and(|old| old != name);
             row.output = format!(
-                "{name} {suffix}.{}",
+                "{output}.{}",
                 p.extension().unwrap_or_default().to_string_lossy()
             );
+        }
+        let output_stem = row.output.rsplit_once('.').map_or("", |(stem, _)| stem);
+        let device = output_stem
+            .split('.')
+            .next()
+            .unwrap_or_default()
+            .to_ascii_uppercase();
+        let reserved = matches!(device.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+            || ["COM", "LPT"].iter().any(|prefix| {
+                device.strip_prefix(prefix).is_some_and(|n| {
+                    matches!(
+                        n,
+                        "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "¹" | "²" | "³"
+                    )
+                })
+            });
+        if reserved
+            || output_stem.is_empty()
+            || output_stem.ends_with(['.', ' '])
+            || output_stem
+                .chars()
+                .any(|c| c < ' ' || "<>:\"/\\|?*".contains(c))
+        {
+            row.output = "The format produced an empty or invalid filename".into();
+            row.status = "Needs input".into();
+            rows.push(row);
+            continue;
         }
         if row.output.encode_utf16().count() > 255 {
             return Err(
@@ -1596,12 +1702,109 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
     #[test]
+    fn existing_saved_formats_migrate_once_without_changing_names() {
+        let root = fixture();
+        let path = root.join("settings.json");
+        fs::write(&path, r#"{"NumberFormat":"[S][E]"}"#).unwrap();
+        let settings = Settings::load(&path);
+        let source = root.join("Raw S02E09.mkv");
+        assert_eq!(
+            plan(&root, "Anemorph", &[source], &settings).unwrap()[0].output,
+            "Anemorph S02E09.mkv"
+        );
+        settings.save(&path).unwrap();
+        assert_eq!(Settings::load(&path).number_format, settings.number_format);
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn episode_titles_are_cleaned_and_survive_custom_format_refresh() {
+        let root = fixture();
+        let settings = Settings {
+            number_format: "[Series Name][Space][Num][S][SeaNum][E][EpsNum][Space][Episode Name]"
+                .into(),
+            ..Default::default()
+        };
+        let source = root
+            .join("[Group] Tamako Market E09 She's the Cute Girl from the Mochi Shop [1080p].MKV");
+        let rows = plan(&root, "Tamako Market", &[source], &settings).unwrap();
+        assert_eq!(
+            rows[0].output,
+            "Tamako Market S01E09 She's the Cute Girl from the Mochi Shop.MKV"
+        );
+        let refreshed = plan(
+            &root,
+            "Tamako Market",
+            &[rows[0].target.clone().unwrap()],
+            &settings,
+        )
+        .unwrap();
+        assert_eq!(refreshed[0].output, rows[0].output);
+        assert_eq!(refreshed[0].status, "No change");
+        let no_title = root.join("Tamako Market S01E19 [1080p].mkv");
+        assert!(
+            episode_name(
+                &no_title,
+                &crate::naming::Format::parse(&settings.number_format).unwrap()
+            )
+            .is_empty()
+        );
+        let row = plan(&root, "Tamako Market", &[no_title], &settings)
+            .unwrap()
+            .remove(0);
+        assert_eq!(row.output, "Tamako Market S01E19.mkv");
+        let custom = Settings {
+            number_format: "[Series Name][Space][Num][Episode][Space][EpsNum][Space][Episode Name]"
+                .into(),
+            ..Default::default()
+        };
+        let source = root.join("Anemorph Episode 09 Battle S99E99.mkv");
+        let row = plan(&root, "Anemorph", &[source], &custom)
+            .unwrap()
+            .remove(0);
+        assert_eq!(row.output, "Anemorph Episode 09 Battle S99E99.mkv");
+        assert_eq!(row.status, "No change");
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn original_name_and_missing_titles_do_not_require_series_or_invent_numbers() {
+        let root = fixture();
+        let settings = Settings {
+            number_format: "[Original Name]".into(),
+            movie_format: "[Original Name]".into(),
+            ..Default::default()
+        };
+        let rows = plan(
+            &root,
+            "",
+            &[
+                root.join("Original  recording.mp4"),
+                root.join("Original  Movie.mkv"),
+            ],
+            &settings,
+        )
+        .unwrap();
+        assert_eq!(rows[0].output, "Original  recording.mp4");
+        assert_eq!(rows[1].output, "Original  Movie.mkv");
+        assert!(rows.iter().all(|r| r.status == "No change"));
+        let settings = Settings {
+            number_format: "[Episode Name]".into(),
+            ..Default::default()
+        };
+        let row = plan(&root, "", &[root.join("S01E09.mkv")], &settings)
+            .unwrap()
+            .remove(0);
+        assert!(!row.ready && row.target.is_none());
+        assert_eq!(row.status, "Needs input");
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
     fn custom_formats_preserve_detection_extensions_and_undo() {
         let root = fixture();
         let file = root.join("Original S02E09.MP4");
         fs::write(&file, b"unchanged video").unwrap();
         let settings = Settings {
-            number_format: "[FixNum]Part [SeaNum][Space]-[Space][Episode][EpsNum]".into(),
+            number_format:
+                "[Series Name][Space][FixNum]Part [SeaNum][Space]-[Space][Episode][EpsNum]".into(),
             ..Default::default()
         };
         let rows = plan(&root, "Show", std::slice::from_ref(&file), &settings).unwrap();
@@ -1627,7 +1830,7 @@ mod tests {
             manual_numbering: true,
             default_season: 3,
             first_episode: 7,
-            number_format: "[FixNum][S][SeaNum][Space][E][EpsNum]".into(),
+            number_format: "[Series Name][Space][FixNum][S][SeaNum][Space][E][EpsNum]".into(),
             ..Default::default()
         };
         assert_eq!(

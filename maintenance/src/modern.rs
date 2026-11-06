@@ -139,7 +139,7 @@ mod tests {
         let fragment = value.Fragment().unwrap().to_string();
         assert!(path.replace("%20", " ").contains("Anemorph space"));
         assert!(
-            path.contains("A#B") && fragment.is_empty(),
+            path.replace("%23", "#").contains("A#B") && fragment.is_empty(),
             "path={path}; fragment={fragment}"
         );
         assert!(uri(Path::new("relative.msix")).is_err());

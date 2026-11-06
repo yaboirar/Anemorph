@@ -1175,5 +1175,49 @@
     "시즌이 불명확함",
     "季数不明确",
     "الموسم غير واضح"
+  ],
+  "Episode title": [
+    "Название эпизода",
+    "Título del episodio",
+    "Título do episódio",
+    "Bölüm başlığı",
+    "Episodentitel",
+    "エピソード名",
+    "에피소드 제목",
+    "单集标题",
+    "عنوان الحلقة"
+  ],
+  "Edit episode title": [
+    "Изменить название эпизода",
+    "Editar título del episodio",
+    "Editar título do episódio",
+    "Bölüm başlığını düzenle",
+    "Episodentitel bearbeiten",
+    "エピソード名を編集",
+    "에피소드 제목 편집",
+    "编辑单集标题",
+    "تعديل عنوان الحلقة"
+  ],
+  "Original filename without extension": [
+    "Исходное имя без расширения",
+    "Nombre original sin extensión",
+    "Nome original sem extensão",
+    "Uzantısız özgün dosya adı",
+    "Ursprünglicher Dateiname ohne Erweiterung",
+    "拡張子を除いた元のファイル名",
+    "확장자를 제외한 원래 파일 이름",
+    "不含扩展名的原文件名",
+    "اسم الملف الأصلي دون الامتداد"
+  ],
+  "Leave empty to omit the episode title.": [
+    "Оставьте пустым, чтобы убрать название эпизода.",
+    "Deja vacío para omitir el título del episodio.",
+    "Deixe vazio para omitir o título do episódio.",
+    "Bölüm başlığını çıkarmak için boş bırakın.",
+    "Leer lassen, um den Episodentitel wegzulassen.",
+    "エピソード名を省略する場合は空欄にしてください。",
+    "에피소드 제목을 생략하려면 비워 두세요.",
+    "留空则省略单集标题。",
+    "اتركه فارغًا لحذف عنوان الحلقة."
   ]
 }

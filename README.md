@@ -60,6 +60,8 @@ Episodes and movies each get their own format, so a season and a standalone film
 
 You control spacing and zero-padding for episode numbers, and the choice is saved for next time. Open **Configuration** to set it up.
 
+Use `[Series Name]`, `[Episode Name]`, and `[Original Name]` to place titles where you want them. Right-click an episode to edit its title. Previously saved formats keep their existing output.
+
 ---
 
 ## Features
@@ -205,4 +207,4 @@ Created by [@yaboirar](https://github.com/yaboirar).
 
 ### License
 
-The source code is licensed under [MIT](LICENSE). The supplied Anemo artwork is excluded from that license; redistribution permission has not been established. See [third-party notices](docs/licenses/third-party-notices.md) and [dependency licenses](docs/licenses/dependency-licenses.md).
+The source code is licensed under [MIT](LICENSE). The Anemorph logo is supplied separately from the code license. See [third-party notices](docs/licenses/third-party-notices.md) and [dependency licenses](docs/licenses/dependency-licenses.md).

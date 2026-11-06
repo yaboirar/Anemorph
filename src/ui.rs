@@ -832,7 +832,11 @@ impl App {
                     && !self.nav_rects.iter().any(|r| r.contains(pos))
             })
         });
-        if drag && !self.about_open && self.episode_dialog.is_none() {
+        if drag
+            && !self.about_open
+            && self.episode_dialog.is_none()
+            && self.episode_title_dialog.is_none()
+        {
             if ui.ctx().input(|i| {
                 i.pointer
                     .button_double_clicked(egui::PointerButton::Primary)
@@ -1919,11 +1923,15 @@ fn format_index(ui: &mut Ui, movie: bool) {
                         let items: &[(&str, &str)] = if movie {
                             &[
                                 ("[Movie Name]", "Movie title from the filename"),
+                                ("[Original Name]", "Original filename without extension"),
                                 ("[Movie]", "Movie"),
                                 ("[Space]", "One space"),
                             ]
                         } else {
                             &[
+                                ("[Series Name]", "Series name"),
+                                ("[Episode Name]", "Episode title"),
+                                ("[Original Name]", "Original filename without extension"),
                                 ("[S] / [Season]", "S / Season"),
                                 ("[E] / [Episode]", "E / Episode"),
                                 ("[SeaNum]", "Season number"),

@@ -67,4 +67,4 @@ Use everyday language in user-facing pages. Keep the README's existing visual st
 
 Code contributions use the project's [MIT license](../LICENSE). Only add artwork, fonts, or dependencies with clear redistribution terms, and include the required notices.
 
-The supplied Anemo artwork is outside the code license. Read [third-party notices](licenses/third-party-notices.md) before reusing or changing project assets.
+The supplied Anemorph logo is outside the code license. Read [third-party notices](licenses/third-party-notices.md) before reusing or changing project assets.

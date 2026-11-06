@@ -13,7 +13,7 @@
 | Part | Where to find its terms |
 | :--- | :--- |
 | Anemorph source code | [MIT license](../../LICENSE) |
-| Supplied Anemo artwork | Separate notice below; redistribution permission is not established |
+| Supplied Anemorph logo | Separate artwork notice below |
 | Installer components | [NSIS license notices](https://github.com/yaboirar/Anemorph/blob/main/installer/NSIS-LICENSE.txt) |
 | Rust dependencies and fallback fonts | [Dependency licenses](dependency-licenses.md) |
 
@@ -23,9 +23,9 @@
 
 The installer uses unmodified NSIS components, including Modern UI, the System plug-in, and the LZMA compression module. Their notices and license terms are in `installer/NSIS-LICENSE.txt` in the source and `NSIS-LICENSE.txt` in the installed app folder. NSIS source is available at https://github.com/kichik/nsis. Anemorph source remains under its own MIT license.
 
-## Anemo logo
+## Anemorph logo
 
-`assets/icon.svg`, `assets/icon.png`, and `assets/icon.ico` contain the Anemo emblem supplied for this project, associated with Genshin Impact. These files are not original Anemorph artwork and are excluded from the project's MIT license. No redistribution permission or open-source asset license has been established. The supplied logo is retained at the maintainer's request. The code license does not grant redistribution rights to this artwork. Its presence does not imply affiliation or endorsement.
+`assets/icon.svg` is the replacement Anemorph logo supplied by the maintainer for use in the app and public repository. `assets/icon.png` and `assets/icon.ico` are generated from that SVG. They replace the previously supplied Genshin Impact Anemo emblem in the application, installer, and Explorer icon. No separate artwork license has been specified; the source-code MIT license does not automatically grant additional logo rights. Older documentation screenshots may show earlier branding.
 
 ## Fonts
 

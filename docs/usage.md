@@ -75,10 +75,13 @@ Open **Configuration > Filename format**. Episodes and movies have separate inpu
 
 ### Episodes
 
-Anemorph adds the series name and original extension. These indexes control the part between them:
+These indexes control the complete filename. Use `[Series Name]` wherever you want the series title. The original extension stays attached automatically. Previously saved numbering-only formats are migrated without changing their output.
 
 | Format index | Meaning |
 | :--- | :--- |
+| `[Series Name]` | The series-name input on Home |
+| `[Episode Name]` | Episode title from the filename or your saved edit |
+| `[Original Name]` | Original filename without its extension |
 | `[S]`, `[Season]` | The text `S` or `Season` |
 | `[E]`, `[Episode]` | The text `E` or `Episode` |
 | `[SeaNum]` | Season number |
@@ -91,9 +94,12 @@ Choose `[Num]` or `[FixNum]` before inserting numbers. The choice applies to fol
 
 | Format | Example |
 | :--- | :--- |
-| `[Num][S][SeaNum][E][EpsNum]` | `Anemorph S01E09.mkv` |
-| `[FixNum][S][SeaNum][Space][E][EpsNum]` | `Anemorph S1 E9.mkv` |
-| `[Num][Episode][Space][EpsNum]` | `Anemorph Episode 09.mkv` |
+| `[Series Name][Space][Num][S][SeaNum][E][EpsNum]` | `Anemorph S01E09.mkv` |
+| `[Series Name][Space][FixNum][S][SeaNum][Space][E][EpsNum]` | `Anemorph S1 E9.mkv` |
+| `[Series Name][Space][Num][Episode][Space][EpsNum]` | `Anemorph Episode 09.mkv` |
+| `[Series Name][Space][Num][E][EpsNum][Space][Episode Name]` | `Anemorph E09 Episode title.mkv` |
+
+Right-click an episode and choose **Edit episode title** to supply or correct its title. An empty saved title omits it. No title is invented when none can be found. Checking a format without `[Series Name]` does not require the series-name input.
 
 ### Movies
 
@@ -102,8 +108,11 @@ A standalone `Movie` marker in a filename identifies a movie, regardless of lett
 | Format index | Meaning |
 | :--- | :--- |
 | `[Movie Name]` | Cleaned title taken from the filename |
+| `[Original Name]` | Original filename without its extension |
 | `[Movie]` | The text `Movie` |
 | `[Space]` | One space |
+
+`[Original Name]` and `[Space]` work in both format inputs. `[Num]` and `[FixNum]` select number padding; they have no effect in movie formats because those formats have no season or episode numbers.
 
 The default `[Movie Name] Movie` turns `[Group] Anemorph Movie [1080p].mp4` into `Anemorph Movie.mp4`. Movie names do not use the series-name field or consume episode numbers.
 
