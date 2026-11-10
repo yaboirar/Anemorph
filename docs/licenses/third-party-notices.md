@@ -29,11 +29,11 @@ The installer uses unmodified NSIS components, including Modern UI, the System p
 
 ## Fonts
 
-Anemorph requests Arial Bold from the user's Windows installation at runtime. CJK and Arabic interfaces also load a suitable installed Windows font only when selected. No Windows or LEMON MILK font file is included in the project or executable. If Arial Bold is unavailable, the interface uses egui's bundled fallback fonts. Installed fonts remain subject to their own licenses.
+Anemorph requests Arial Bold from the user's Windows installation at runtime. On Linux it uses an installed Liberation Sans or DejaVu Sans font when available. CJK and Arabic interfaces also load suitable installed fonts only when selected. No Windows, LEMON MILK, Noto, Liberation, or DejaVu font file is included in the project or executable. If no suitable installed font is available, the interface uses egui's bundled fallback fonts. Installed fonts remain subject to their own licenses.
 
 ## Rust dependencies
 
-Dependencies and bundled fallback fonts retain their upstream licenses. See Cargo.lock for exact dependency versions and each upstream package's license files. The project's MIT license does not replace those licenses. The Windows normal/build dependency notices from this locked build are collected in [dependency licenses](dependency-licenses.md); review upstream terms when changing dependencies or distribution targets.
+Dependencies and bundled fallback fonts retain their upstream licenses. See Cargo.lock for exact dependency versions and each upstream package's license files. The project's MIT license does not replace those licenses. The Windows and Linux dependency notices from this locked build are collected in [dependency licenses](dependency-licenses.md); review upstream terms when changing dependencies or distribution targets.
 
 ---
 

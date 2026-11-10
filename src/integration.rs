@@ -1,6 +1,7 @@
 use eframe::egui;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use std::{
-    os::windows::process::CommandExt,
     path::PathBuf,
     process::{Command, Output, Stdio},
     sync::mpsc,
@@ -29,8 +30,9 @@ fn root_command(root: &std::path::Path, action: &str) -> Result<Output, String> 
     )
 }
 fn run_command(command: &mut Command, timeout: Duration) -> Result<Output, String> {
+    #[cfg(windows)]
+    command.creation_flags(0x08000000);
     let mut child = command
-        .creation_flags(0x08000000)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

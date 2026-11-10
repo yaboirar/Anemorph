@@ -1,3 +1,4 @@
+#[cfg(windows)]
 use windows_sys::Win32::{
     Foundation::{HWND, POINT, RECT},
     UI::WindowsAndMessaging::{
@@ -8,20 +9,74 @@ use windows_sys::Win32::{
 
 /// Borderless Windows windows do not reliably restore themselves on caption drag.
 /// Restore synchronously, anchor the normal-sized window under the pointer, then
-/// let winit start the same native move operation that works at normal size.
-pub fn prepare(handle: usize, title_height: f32) {
+/// start the Windows move operation using correctly packed screen coordinates.
+#[cfg(windows)]
+pub fn begin(handle: usize, title_height: f32) {
     let hwnd = handle as HWND;
     let mut cursor = POINT { x: 0, y: 0 };
     // Safety: the HWND is borrowed from this app's live creation context. These
     // synchronous calls retain no pointers to our stack-owned coordinates.
     unsafe {
-        if IsZoomed(hwnd) == 0 || GetCursorPos(&mut cursor) == 0 {
+        if GetCursorPos(&mut cursor) == 0 {
             return;
         }
     }
-    restore_at(handle, cursor.x, cursor.y, title_height);
+    unsafe {
+        use windows_sys::Win32::UI::{
+            Input::KeyboardAndMouse::ReleaseCapture,
+            Shell::SetWindowSubclass,
+            WindowsAndMessaging::{HTCAPTION, PostMessageW, WM_NCLBUTTONDOWN},
+        };
+        if SetWindowSubclass(hwnd, Some(drag_messages), 0x414e4447, 0) == 0 {
+            return;
+        }
+        if IsZoomed(hwnd) != 0 && !restore_at(handle, cursor.x, cursor.y, title_height) {
+            return;
+        }
+        ReleaseCapture();
+        // WM_NCLBUTTONDOWN takes signed screen coordinates packed in LPARAM.
+        // winit 0.30's Windows path passes a stack address here instead.
+        PostMessageW(
+            hwnd,
+            WM_NCLBUTTONDOWN,
+            HTCAPTION as usize,
+            packed_point(cursor.x, cursor.y),
+        );
+    }
 }
+#[cfg(windows)]
+unsafe extern "system" fn drag_messages(
+    hwnd: HWND,
+    message: u32,
+    w: usize,
+    l: isize,
+    id: usize,
+    _data: usize,
+) -> isize {
+    use windows_sys::Win32::UI::{
+        Shell::{DefSubclassProc, RemoveWindowSubclass},
+        WindowsAndMessaging::{PostMessageW, WM_EXITSIZEMOVE, WM_LBUTTONUP, WM_NCDESTROY},
+    };
+    unsafe {
+        if message == WM_EXITSIZEMOVE {
+            // Our native move bypasses winit's internal dragging flag. Release
+            // egui's client-area press after Windows consumes the native mouse-up.
+            PostMessageW(hwnd, WM_LBUTTONUP, 0, 0);
+        }
+        if message == WM_NCDESTROY {
+            RemoveWindowSubclass(hwnd, Some(drag_messages), id);
+        }
+        DefSubclassProc(hwnd, message, w, l)
+    }
+}
+#[cfg(windows)]
+fn packed_point(x: i32, y: i32) -> isize {
+    ((x as u16 as u32) | ((y as u16 as u32) << 16)) as isize
+}
+#[cfg(not(windows))]
+pub fn begin(_handle: usize, _title_height: f32) {}
 
+#[cfg(windows)]
 pub fn restore_at(handle: usize, cursor_x: i32, cursor_y: i32, title_height: f32) -> bool {
     let hwnd = handle as HWND;
     let mut before = RECT::default();
@@ -55,6 +110,7 @@ pub fn restore_at(handle: usize, cursor_x: i32, cursor_y: i32, title_height: f32
     }
 }
 
+#[cfg(any(windows, test))]
 fn anchored_position(
     maximized: [i32; 4],
     restored_width: i32,
@@ -72,6 +128,7 @@ fn anchored_position(
 }
 
 /// Integration check used only by the isolated window smoke test.
+#[cfg(windows)]
 pub fn verify_maximized_restore(handle: usize) -> bool {
     use windows_sys::Win32::UI::WindowsAndMessaging::{GetWindowPlacement, WINDOWPLACEMENT};
     let hwnd = handle as HWND;
@@ -105,10 +162,23 @@ pub fn verify_maximized_restore(handle: usize) -> bool {
             && y <= restored.top + 44
     }
 }
+#[cfg(not(windows))]
+pub fn verify_maximized_restore(_handle: usize) -> bool {
+    false
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    #[cfg(windows)]
+    fn native_drag_message_packs_coordinates_instead_of_passing_a_pointer() {
+        for (x, y) in [(960, 24), (-1400, 32), (2800, -120)] {
+            let packed = packed_point(x, y);
+            assert_eq!(packed as i16 as i32, x);
+            assert_eq!((packed >> 16) as i16 as i32, y);
+        }
+    }
     #[test]
     fn restore_keeps_the_pointer_over_the_title_bar_on_any_monitor() {
         assert_eq!(

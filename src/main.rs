@@ -3,6 +3,10 @@ mod containers;
 mod elevation;
 mod engine;
 mod i18n;
+#[cfg(windows)]
+mod instance;
+#[cfg(target_os = "linux")]
+#[path = "platform/linux_instance.rs"]
 mod instance;
 mod integration;
 mod naming;
@@ -122,6 +126,7 @@ struct App {
     anchor: Option<usize>,
     check_anchor: Option<(usize, bool)>,
     table_focus: bool,
+    caption_drag_started: bool,
     column_drag: Option<(usize, f32)>,
     draft_color: Color32,
     picker_hue: f32,
@@ -294,6 +299,7 @@ impl App {
             anchor: None,
             check_anchor: None,
             table_focus: false,
+            caption_drag_started: false,
             column_drag: None,
             draft_color: color,
             picker_hue: egui::ecolor::Hsva::from(color).h,
@@ -833,9 +839,11 @@ impl App {
         }
         self.rebuild();
     }
-    fn start_window_drag(&self, ctx: &Context) {
+    fn start_window_drag(&mut self, ctx: &Context) {
+        self.caption_drag_started = true;
         if let Some(handle) = self.native_window {
-            window_drag::prepare(handle, 44. * ctx.pixels_per_point());
+            window_drag::begin(handle, 52. * ctx.pixels_per_point());
+            return;
         }
         ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
     }
@@ -1081,6 +1089,7 @@ impl App {
 
 /// Let the Windows compositor clip the native window, including its client area.
 /// Applied once at creation: no per-frame masks, transparency, or resize work.
+#[cfg(windows)]
 fn round_window_corners(cc: &eframe::CreationContext<'_>) {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     use windows_sys::Win32::Graphics::Dwm::{
@@ -1102,6 +1111,8 @@ fn round_window_corners(cc: &eframe::CreationContext<'_>) {
         }
     }
 }
+#[cfg(not(windows))]
+fn round_window_corners(_cc: &eframe::CreationContext<'_>) {}
 fn main() -> eframe::Result {
     let args: Vec<_> = std::env::args_os().collect();
     if args.get(1).is_some_and(|s| s == "--benchmark") {

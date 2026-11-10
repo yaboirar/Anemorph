@@ -1,10 +1,11 @@
-use std::{
-    os::windows::ffi::OsStringExt,
-    path::{Path, PathBuf},
-};
+#[cfg(windows)]
+use std::os::windows::ffi::OsStringExt;
+use std::path::{Path, PathBuf};
+#[cfg(windows)]
 use windows_sys::Win32::System::Registry::{
     HKEY_CURRENT_USER, RRF_RT_REG_SZ, RRF_SUBKEY_WOW6464KEY, RegGetValueW,
 };
+#[cfg(windows)]
 pub fn installed() -> Option<PathBuf> {
     let key: Vec<_> = "Software\\Anemorph".encode_utf16().chain(Some(0)).collect();
     let name: Vec<_> = "InstallDir".encode_utf16().chain(Some(0)).collect();
@@ -30,6 +31,10 @@ pub fn installed() -> Option<PathBuf> {
     ));
     let uninstaller = path.join("Uninstall.exe");
     (path.is_absolute() && uninstaller.is_file()).then_some(uninstaller)
+}
+#[cfg(not(windows))]
+pub fn installed() -> Option<PathBuf> {
+    None
 }
 pub fn launch(path: &Path, parent_pid: u32) -> Result<(), String> {
     if !path.is_absolute() || !path.is_file() {

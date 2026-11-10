@@ -8,20 +8,22 @@ Rename anime episodes, TV shows, and movies in bulk. Preview every change first,
 
 [![Release](https://img.shields.io/github/v/release/yaboirar/Anemorph?style=for-the-badge&label=Release)](https://github.com/yaboirar/Anemorph/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/yaboirar/Anemorph/total?style=for-the-badge&label=Downloads)](https://github.com/yaboirar/Anemorph/releases)
-[![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge)](https://github.com/yaboirar/Anemorph/releases/latest)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-0078D6?style=for-the-badge)](https://github.com/yaboirar/Anemorph/releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-10b981?style=for-the-badge)](LICENSE)
 
-[**Download the installer**](https://github.com/yaboirar/Anemorph/releases/download/v0.0.3/Anemorph-Setup-0.0.3.exe) · [Portable ZIP](https://github.com/yaboirar/Anemorph/releases/download/v0.0.3/Anemorph-v0.0.3-windows.zip) · [User guide](docs/usage.md) · [Changelog](docs/changelog.md)
+[**Download the installer**](https://github.com/yaboirar/Anemorph/releases/download/v0.0.4/Anemorph-Setup-0.0.4.exe) · [Portable ZIP](https://github.com/yaboirar/Anemorph/releases/download/v0.0.4/Anemorph-v0.0.4-windows.zip) · [User guide](docs/usage.md) · [Changelog](docs/changelog.md)
 
 <br />
 
-![Anemorph showing original filenames beside their new names](assets/screenshots/home.jpg)
+![Anemorph 0.0.4 on Linux showing original filenames beside their new names](assets/screenshots/linux.webp)
 
 </div>
 
 ---
 
 ## The problem
+
+**New in 0.0.4:** Linux support, less work while moving the window, and a separate **Update** page in the Windows installer. [See what changed](docs/changelog.md#004---2026-11-10).
 
 Downloaded episodes arrive with release-group tags, resolution labels, and inconsistent numbering. Renaming a season by hand is slow, and one typo can break your library order. Generic batch renamers make you write patterns, and they rarely understand the difference between an episode and a movie.
 
@@ -96,20 +98,30 @@ English (US/UK), Russian, Spanish, Portuguese, Turkish, German, Japanese, Korean
 
 | | Installer | Portable ZIP |
 | :--- | :--- | :--- |
-| Download | [Anemorph-Setup-0.0.3.exe](https://github.com/yaboirar/Anemorph/releases/download/v0.0.3/Anemorph-Setup-0.0.3.exe) | [Anemorph-v0.0.3-windows.zip](https://github.com/yaboirar/Anemorph/releases/download/v0.0.3/Anemorph-v0.0.3-windows.zip) |
+| Download | [Anemorph-Setup-0.0.4.exe](https://github.com/yaboirar/Anemorph/releases/download/v0.0.4/Anemorph-Setup-0.0.4.exe) | [Anemorph-v0.0.4-windows.zip](https://github.com/yaboirar/Anemorph/releases/download/v0.0.4/Anemorph-v0.0.4-windows.zip) |
 | Install location | The folder you choose | None, run from anywhere |
 | File Explorer right-click | Yes | No |
 | Setup | Run the installer | Extract and open **Anemorph.exe** |
 
 > **Windows warning.** The current installer is unsigned, so Windows may show an unknown-publisher or SmartScreen warning. Only download from this repository's [Releases page](https://github.com/yaboirar/Anemorph/releases). The source is public if you'd rather [build it yourself](docs/building.md).
 
+**Linux:** [Ubuntu/Debian installer](https://github.com/yaboirar/Anemorph/releases/download/v0.0.4/Anemorph-0.0.4-linux-amd64.deb) · [Portable archive](https://github.com/yaboirar/Anemorph/releases/download/v0.0.4/Anemorph-v0.0.4-linux-x86_64.tar.gz). On Ubuntu 24.04 or a compatible system, download the `.deb`, then install it from your Downloads folder:
+
+```sh
+sudo apt install ./Anemorph-0.0.4-linux-amd64.deb
+```
+
+The portable archive lets you run `anemorph` directly or choose your own install folder with `sh install.sh`. Both downloads require x86-64 and glibc 2.39 or newer; see [setup and compatibility](docs/building.md#linux).
+
+**Already installed on Windows?** Run the new installer. A different version or build opens the Update page and keeps your saved settings. Choose **Repair or uninstall instead** to switch to maintenance.
+
 ---
 
-## Start from File Explorer
+## Start from File Explorer (Windows)
 
-Select your videos, right-click, and choose **Rename with Anemorph**. Anemorph opens with those files ready to preview.
+**Windows version:** select your videos in File Explorer, right-click, and choose **Rename with Anemorph**. Anemorph opens with those files ready to preview.
 
-**Updated in the latest 0.0.3 patch:** selections open in your existing Anemorph window. Files stay checked even when detection cannot identify an episode or movie, including after refresh. Files without a valid new name remain skipped until you resolve them.
+Selections open in your existing Anemorph window. Files stay checked even when detection cannot identify an episode or movie, including after refresh. Files without a valid new name remain skipped until you resolve them.
 
 ![Rename with Anemorph in the Windows 11 right-click menu](assets/screenshots/explorer-menu.png?v=cropped-logo)
 
@@ -173,7 +185,7 @@ They stay missing. Anemorph keeps the numbers your files already have and never 
 <details>
 <summary><strong>Does it work on macOS or Linux?</strong></summary>
 
-Anemorph currently supports Windows only. Building the source does not add macOS or Linux support.
+Anemorph 0.0.4 supports Windows and Linux. The Linux download targets x86-64 systems with glibc 2.39 or newer; Ubuntu 24.04 with Xfce has been tested. See the [Linux instructions](docs/building.md#linux). macOS is not supported.
 
 </details>
 

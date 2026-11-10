@@ -2,7 +2,7 @@
 
 # Build from source
 
-**Build Anemorph, run its checks, and package a Windows release.**
+**Build Anemorph, run its checks, and package the app.**
 
 [Home](../README.md) · [Contributing](contributing.md) · [Test results](performance.md) · [Signing](signing.md)
 
@@ -14,7 +14,7 @@
 
 | Tool | Purpose |
 | :--- | :--- |
-| Windows | The app and Explorer integration currently target Windows |
+| Windows or Linux | Explorer integration and the Windows installer require Windows |
 | Stable Rust with edition 2024 support | Builds the app and helpers |
 | Windows linker and build tools | GNU tools or Visual Studio C++ build tools for your Rust target |
 | NSIS | Packages the installer |
@@ -47,7 +47,30 @@ target\release\anemorph.exe --files "C:\Videos\Anemorph S01E01.mkv" "C:\Videos\R
 
 ---
 
+## Linux
+
+The Linux build is a native desktop app. The default drawing path does not require a graphics card. X11 and Wayland are enabled; desktop testing currently covers Ubuntu 24.04 with Xfce on X11.
+
+On Ubuntu 24.04, install stable Rust and these build/runtime libraries:
+
+```sh
+sudo apt install build-essential pkg-config libx11-dev libxkbcommon-dev libxkbcommon-x11-0 libwayland-dev libgl1-mesa-dev libegl1-mesa-dev libdbus-1-dev
+cargo build --release --locked -p anemorph
+cargo test --locked -p anemorph
+cargo clippy --locked -p anemorph --all-targets -- -D warnings
+```
+
+Run `target/release/anemorph`, or open selected videos with `target/release/anemorph --files /path/to/video.mkv`. Later launches pass their files to the existing window. Settings and undo history are stored under `${XDG_DATA_HOME:-$HOME/.local/share}/anemorph`.
+
+Create a portable archive with `sh installer/linux/package.sh`. Extract it, then run `./anemorph` or `sh install.sh` to add it to your app menu. You can choose another location with `sh install.sh /absolute/install/path`. A custom location may need its `share` folder added to `XDG_DATA_DIRS` for desktop menu discovery. Use `sh uninstall.sh` with the same location to remove installed app files; saved settings and undo history are kept.
+
+The launcher also makes Anemorph available through compatible file managers' **Open With** choices. The Windows-only Explorer menu and uninstaller are not shown on Linux. Linux archives built on Ubuntu 24.04 require glibc 2.39 or newer, plus `libxkbcommon-x11-0` on X11. Wayland is compiled but has not been tested in a Wayland desktop session.
+
+---
+
 ## Build the installer
+
+The Linux packaging script also creates a `.deb` when `dpkg-deb` is available. Install the downloaded file with `sudo apt install ./Anemorph-0.0.4-linux-amd64.deb`; remove it with `sudo apt remove anemorph`. Package-managed app files are removed; your saved settings and undo history are kept. The package uses standard system folders. Use the portable installer if you prefer a custom location.
 
 Install [NSIS](https://nsis.sourceforge.io/Download), put `makensis.exe` on PATH, and run:
 

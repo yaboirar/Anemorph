@@ -20,12 +20,26 @@ pub fn supported(path: &Path) -> bool {
             .any(|(ext, _)| e.eq_ignore_ascii_case(ext))
     })
 }
+#[cfg(windows)]
 pub fn directory() -> PathBuf {
     std::env::var_os("LOCALAPPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(std::env::temp_dir)
         .join("EpisodeRenamer")
         .join("Selections")
+}
+#[cfg(target_os = "linux")]
+pub fn directory() -> PathBuf {
+    std::env::var_os("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .filter(|p| p.is_absolute())
+        .unwrap_or_else(|| {
+            std::env::var_os("HOME")
+                .map(PathBuf::from)
+                .unwrap_or_else(std::env::temp_dir)
+                .join(".local/share")
+        })
+        .join("anemorph/Selections")
 }
 #[allow(dead_code)] // Shared with the Explorer DLL; exercised by the app's parser tests.
 pub fn write_request(dir: &Path, id: &str, files: &[PathBuf]) -> Result<PathBuf, String> {
@@ -100,7 +114,11 @@ pub fn validate(files: Vec<PathBuf>) -> Result<Vec<PathBuf>, String> {
             return Err("The selection contains a missing or unsupported video file.".into());
         }
         let canonical = path.canonicalize().map_err(|e| e.to_string())?;
-        if seen.insert(canonical.to_string_lossy().to_lowercase()) {
+        #[cfg(windows)]
+        let identity = canonical.to_string_lossy().to_lowercase();
+        #[cfg(not(windows))]
+        let identity = canonical.to_string_lossy().into_owned();
+        if seen.insert(identity) {
             result.push(path);
         }
     }

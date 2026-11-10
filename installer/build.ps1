@@ -25,6 +25,13 @@ try {
         & (Join-Path $PSScriptRoot 'sign.ps1') -CertificateThumbprint $ReleaseCertificateThumbprint -SignTool $SignTool -Files @($app,$maintenance,$broker,$shell)
         $signArgs = @("/DRELEASE_CERT=$ReleaseCertificateThumbprint", "/DSIGN_TOOL=$SignTool", "/DSIGN_SCRIPT=$(Join-Path $PSScriptRoot 'sign.ps1')", "/DSIGN_POWERSHELL=$((Get-Command powershell.exe).Source)")
     }
+    $buildFiles = @($app, $shell, $maintenance, $broker, (Join-Path $PSScriptRoot 'Anemorph.nsi'), (Join-Path $PSScriptRoot 'maintenance.nsh'), $PSCommandPath)
+    $buildHashes = ($buildFiles | ForEach-Object { (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash }) -join ':'
+    $hasher = [Security.Cryptography.SHA256]::Create()
+    try { $buildId = [BitConverter]::ToString($hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($buildHashes))).Replace('-', '').ToLowerInvariant() } finally { $hasher.Dispose() }
+    $fileTime = (Get-Item -LiteralPath $app).LastWriteTimeUtc.ToFileTimeUtc()
+    $buildArgs = @("/DAPP_BUILD_ID=$buildId", "/DAPP_FILE_TIME_HIGH=$($fileTime -shr 32)", "/DAPP_FILE_TIME_LOW=$($fileTime -band 0xffffffffL)")
+    $signArgs += $buildArgs
     $hash = (Get-FileHash -LiteralPath $shell -Algorithm SHA256).Hash.Substring(0, 12).ToLowerInvariant()
     $generated = Join-Path $TargetDir 'installer'
     New-Item -ItemType Directory -Path $generated, $OutputDir -Force | Out-Null

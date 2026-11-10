@@ -704,6 +704,21 @@ impl App {
                 });
         });
         self.apply_preferences(previous, ui.ctx());
+        if !cfg!(windows) {
+            ui.strong(tr(ui.ctx(), "Repair Anemorph"));
+            card(ui, p, |ui| {
+                if ui
+                    .add_enabled(
+                        !self.busy && self.preview.is_none(),
+                        egui::Button::new(tr(ui.ctx(), "Repair")),
+                    )
+                    .clicked()
+                {
+                    self.repair(ui.ctx());
+                }
+            });
+            return;
+        }
         ui.strong(tr(ui.ctx(), "Integration"));
         self.integration.poll(
             self.uninstaller
@@ -1070,6 +1085,9 @@ impl App {
         }
     }
     fn resize(&self, ctx: &Context) {
+        if ctx.input(|i| i.viewport().maximized.unwrap_or(false)) {
+            return;
+        }
         let Some(pos) = ctx.input(|i| i.pointer.hover_pos()) else {
             return;
         };

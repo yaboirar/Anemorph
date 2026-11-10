@@ -10,6 +10,16 @@
 
 ---
 
+## 0.0.4 - 2026-11-10
+
+- **Linux support:** rename episodes and movies on Linux with previews, custom names, and undo. Run it directly or install it for your account, in a folder you choose.
+- **Less work while moving the window:** reuse the contents already drawn instead of drawing them again just because the window moved.
+- **Window dragging:** correct how a maximized Windows window starts moving, and release a completed drag so the next one can start normally.
+- **An Update page in the Windows installer:** a different version or build offers Update separately from Repair and Uninstall. A button takes you to Repair if that is what you need. Updating keeps your settings and undo history.
+- Keep Linux files whose names differ only by capital letters separate, and prevent renames from replacing an existing file.
+
+See [measured performance and test limits](performance.md) for active-use results.
+
 ## 0.0.3 - 2026-10-28
 
 ### Latest 0.0.3 patch

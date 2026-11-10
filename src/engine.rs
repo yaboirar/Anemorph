@@ -189,11 +189,25 @@ impl Settings {
         atomic_write(path, &bytes)
     }
 }
+#[cfg(windows)]
 pub fn data_dir() -> PathBuf {
     std::env::var_os("LOCALAPPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(std::env::temp_dir)
         .join("EpisodeRenamer")
+}
+#[cfg(target_os = "linux")]
+pub fn data_dir() -> PathBuf {
+    std::env::var_os("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .filter(|p| p.is_absolute())
+        .unwrap_or_else(|| {
+            std::env::var_os("HOME")
+                .map(PathBuf::from)
+                .unwrap_or_else(std::env::temp_dir)
+                .join(".local/share")
+        })
+        .join("anemorph")
 }
 // Bounded reads also enforce the limit if a file grows while being read.
 fn read_bounded(path: &Path, limit: u64) -> Result<Vec<u8>, String> {
@@ -503,7 +517,14 @@ fn folder_season(path: &Path) -> Option<u32> {
         })
 }
 fn key(p: &Path) -> String {
-    p.to_string_lossy().to_lowercase()
+    #[cfg(windows)]
+    {
+        p.to_string_lossy().to_lowercase()
+    }
+    #[cfg(not(windows))]
+    {
+        p.to_string_lossy().into_owned()
+    }
 }
 pub fn scan(root: &Path, settings: &Settings) -> Result<Vec<PathBuf>, String> {
     if !root.is_dir() {
@@ -821,21 +842,13 @@ pub fn plan_with_markers(
                     Err(_) => return None,
                 };
                 entries
-                    .map(|item| item.map(|e| e.file_name().to_string_lossy().to_lowercase()))
+                    .map(|item| item.map(|e| key(Path::new(&e.file_name()))))
                     .collect::<Result<HashSet<_>, _>>()
                     .ok()
             });
         let exists = existing.as_ref().map_or_else(
             || target.exists(),
-            |names| {
-                names.contains(
-                    &target
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_lowercase(),
-                )
-            },
+            |names| names.contains(&key(Path::new(target.file_name().unwrap_or_default()))),
         );
         if exists || counts[&key(target)] > 1 {
             r.ready = false;
@@ -857,15 +870,26 @@ fn move_no_replace(source: &Path, target: &Path) -> std::io::Result<()> {
         Ok(())
     }
 }
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
 fn move_no_replace(source: &Path, target: &Path) -> std::io::Result<()> {
-    if target.exists() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::AlreadyExists,
-            "Target exists",
-        ));
+    use std::{ffi::CString, os::unix::ffi::OsStrExt};
+    let source = CString::new(source.as_os_str().as_bytes())?;
+    let target = CString::new(target.as_os_str().as_bytes())?;
+    // Atomic no-overwrite rename: an existence check followed by rename would race.
+    if unsafe {
+        libc::renameat2(
+            libc::AT_FDCWD,
+            source.as_ptr(),
+            libc::AT_FDCWD,
+            target.as_ptr(),
+            libc::RENAME_NOREPLACE,
+        )
+    } == 0
+    {
+        Ok(())
+    } else {
+        Err(std::io::Error::last_os_error())
     }
-    fs::rename(source, target)
 }
 pub fn apply(changes: &[Change]) -> Result<(), String> {
     apply_checked(changes, false)
@@ -901,21 +925,13 @@ fn apply_checked(changes: &[Change], identities_verified: bool) -> Result<(), St
             .or_insert_with(|| {
                 fs::read_dir(c.target.parent().unwrap())
                     .ok()?
-                    .map(|e| e.map(|e| e.file_name().to_string_lossy().to_lowercase()))
+                    .map(|e| e.map(|e| key(Path::new(&e.file_name()))))
                     .collect::<Result<HashSet<_>, _>>()
                     .ok()
             });
         let occupied = names.as_ref().map_or_else(
             || c.target.exists(),
-            |names| {
-                names.contains(
-                    &c.target
-                        .file_name()
-                        .unwrap()
-                        .to_string_lossy()
-                        .to_lowercase(),
-                )
-            },
+            |names| names.contains(&key(Path::new(c.target.file_name().unwrap()))),
         );
         if occupied || !targets.insert(key(&c.target)) {
             return Err(format!(
@@ -969,13 +985,21 @@ fn journal_lock(history: &Path) -> Result<fs::File, String> {
         use std::os::windows::fs::OpenOptionsExt;
         options.share_mode(0);
     }
-    options
+    let file = options
         .open(history.with_extension("lock"))
-        .map_err(|e| format!("Undo history is busy or unavailable: {e}"))
+        .map_err(|e| format!("Undo history is busy or unavailable: {e}"))?;
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::fd::AsRawFd;
+        if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+            return Err("Undo history is busy or unavailable.".into());
+        }
+    }
+    Ok(file)
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 struct Identity {
-    volume: u32,
+    volume: u64,
     index: u64,
     size: u64,
     modified: u64,
@@ -1007,7 +1031,7 @@ fn identity(path: &Path) -> Result<Identity, String> {
             return Err(format!("Not a regular file: {}", path.display()));
         }
         Ok(Identity {
-            volume: info.dwVolumeSerialNumber,
+            volume: u64::from(info.dwVolumeSerialNumber),
             index: ((info.nFileIndexHigh as u64) << 32) | info.nFileIndexLow as u64,
             size: ((info.nFileSizeHigh as u64) << 32) | info.nFileSizeLow as u64,
             modified: ((info.ftLastWriteTime.dwHighDateTime as u64) << 32)
@@ -1016,10 +1040,11 @@ fn identity(path: &Path) -> Result<Identity, String> {
     }
     #[cfg(not(windows))]
     {
+        use std::os::unix::fs::MetadataExt;
         let m = fs::metadata(path).map_err(|e| e.to_string())?;
         Ok(Identity {
-            volume: 0,
-            index: 0,
+            volume: m.dev(),
+            index: m.ino(),
             size: m.len(),
             modified: m
                 .modified()
@@ -1243,7 +1268,6 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
     #[test]
-    #[cfg(windows)]
     fn concurrent_instances_cannot_share_undo_lock() {
         let root = fixture();
         let history = root.join("history.json");
@@ -1575,7 +1599,14 @@ mod tests {
         assert!(!markers.contains_key(&media_marker_key(&changes[0].target)));
         assert_eq!(fs::read(&file).unwrap(), b"video contents");
         let upper = PathBuf::from(file.to_string_lossy().to_uppercase());
-        assert_eq!(marked_media_kind(&upper, &markers), MediaKind::Movie);
+        assert_eq!(
+            marked_media_kind(&upper, &markers),
+            if cfg!(windows) {
+                MediaKind::Movie
+            } else {
+                MediaKind::Episode
+            }
+        );
         markers.remove(&media_marker_key(&file));
         assert_eq!(marked_media_kind(&file, &markers), MediaKind::Episode);
         fs::remove_dir_all(root).unwrap();
@@ -1864,7 +1895,8 @@ mod tests {
             (r"E:\Anime\Show (BD (1080p)) Season 2", "Show"),
             (r"E:\Anime\A (note) B", "A B"),
         ] {
-            assert_eq!(guess_name(Path::new(folder)), expected);
+            let folder = folder.replace('\\', "/");
+            assert_eq!(guess_name(Path::new(&folder)), expected);
         }
         let rows = plan(
             Path::new(r"E:\Anime\Show"),

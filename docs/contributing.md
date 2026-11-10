@@ -26,7 +26,7 @@ Start with an [issue](https://github.com/yaboirar/Anemorph/issues). For a larger
 
 ## Reporting a problem
 
-Include your **Anemorph version**, **Windows version**, and the shortest steps that reproduce it. If Explorer is involved, say whether you opened Anemorph first or launched it from a right-click menu.
+Include your **Anemorph version**, **operating system**, and the shortest steps that reproduce it. On Linux, include your distribution and desktop. If Explorer is involved, say whether you opened Anemorph first or launched it from a right-click menu.
 
 For filename problems, a before/expected table is useful:
 
@@ -52,6 +52,8 @@ cargo test --workspace --locked
 ```
 
 Add a regression test when fixing behavior that could break again, such as episode detection, Explorer selections, or undo. In the pull request, describe the problem, the resulting behavior, and how you checked it.
+
+On Linux, use `-p anemorph` instead of `--workspace`; the other workspace members provide Windows integration.
 
 ### Interface changes
 

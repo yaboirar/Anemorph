@@ -73,12 +73,24 @@ pub fn configure(ctx: &Context, code: &str) {
         .unwrap_or(if code == "en-GB" { 1 } else { 0 });
     ctx.data_mut(|d| d.insert_temp(Id::new("interface_language"), language));
     let mut fonts = FontDefinitions::default();
+    #[cfg(windows)]
     let root = std::env::var_os("WINDIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(r"C:\Windows"))
         .join("Fonts");
     let mut brand = fonts.families[&FontFamily::Proportional].clone();
-    if let Ok(bytes) = std::fs::read(root.join("arialbd.ttf")) {
+    #[cfg(windows)]
+    let brand_path = root.join("arialbd.ttf");
+    #[cfg(target_os = "linux")]
+    let brand_path = [
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    ]
+    .into_iter()
+    .map(PathBuf::from)
+    .find(|p| p.is_file())
+    .unwrap_or_default();
+    if let Ok(bytes) = std::fs::read(brand_path) {
         fonts
             .font_data
             .insert("arial-bold".into(), FontData::from_owned(bytes).into());
@@ -88,15 +100,31 @@ pub fn configure(ctx: &Context, code: &str) {
         .families
         .insert(FontFamily::Name("brand".into()), brand);
     // Load one script font only when needed. Latin users do not retain CJK fonts.
-    let candidates: &[&str] = match LANGUAGES[index].0 {
-        "ja" => &["YuGothR.ttc", "meiryo.ttc", "msyh.ttc"],
+    #[cfg(windows)]
+    let candidates: Vec<PathBuf> = match LANGUAGES[index].0 {
+        "ja" => &["YuGothR.ttc", "meiryo.ttc", "msyh.ttc"][..],
         "ko" => &["malgun.ttf", "msyh.ttc"],
         "zh-Hans" => &["msyh.ttc", "simsun.ttc"],
         "ar" => &["arial.ttf", "segoeui.ttf"],
         _ => &[],
-    };
+    }
+    .iter()
+    .map(|name| root.join(name))
+    .collect();
+    #[cfg(target_os = "linux")]
+    let candidates: Vec<PathBuf> = match LANGUAGES[index].0 {
+        "ja" | "ko" | "zh-Hans" => &[
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        ][..],
+        "ar" | "ru" => &["/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"][..],
+        _ => &[],
+    }
+    .iter()
+    .map(PathBuf::from)
+    .collect();
     for filename in candidates {
-        if let Ok(bytes) = std::fs::read(root.join(filename)) {
+        if let Ok(bytes) = std::fs::read(filename) {
             fonts.font_data.insert(
                 "interface-script".into(),
                 FontData::from_owned(bytes).into(),

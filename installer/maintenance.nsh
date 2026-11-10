@@ -7,6 +7,8 @@ Var RepairRadio
 Var UninstallRadio
 Var ResetCheck
 Var KeepShellForRepair
+Var ExistingVersion
+Var UpdateRepairButton
 !macro PrepareHelper
   InitPluginsDir
   File /oname=$PLUGINSDIR\anemorph-maintenance.exe "${MAINTENANCE_EXE}"
@@ -23,6 +25,24 @@ Function InitializeMaintenance
   ReadRegStr $ExistingDir HKCU "Software\Anemorph" "InstallDir"
   ${If} $ExistingDir == ""
     ReadRegStr $ExistingDir HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Anemorph" "InstallLocation"
+  ${EndIf}
+  ${If} $ExistingDir != ""
+    ReadRegStr $ExistingVersion HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Anemorph" "DisplayVersion"
+    ReadRegStr $0 HKCU "Software\Anemorph" "BuildId"
+    ${If} $ExistingVersion != "${APP_VERSION}"
+      StrCpy $Mode "update"
+    ${ElseIf} $0 != ""
+      ${If} $0 != "${APP_BUILD_ID}"
+        StrCpy $Mode "update"
+      ${EndIf}
+    ${Else}
+      ; Older installers did not record a build ID. Compare executable times.
+      GetFileTime "$ExistingDir\Anemorph.exe" $0 $1
+      ${If} $0 != ${APP_FILE_TIME_HIGH}
+      ${OrIf} $1 != ${APP_FILE_TIME_LOW}
+        StrCpy $Mode "update"
+      ${EndIf}
+    ${EndIf}
   ${EndIf}
   ${GetParameters} $0
   ClearErrors
@@ -46,8 +66,44 @@ Function InitializeMaintenance
   ${EndIf}
 FunctionEnd
 
+Function UpdateCreate
+  ${If} $Mode != "update"
+    Abort
+  ${EndIf}
+  !insertmacro MUI_HEADER_TEXT "Update Anemorph" "Install this version and keep your settings."
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
+  ${EndIf}
+  ${NSD_CreateLabel} 0 0 100% 28u "Installed version: $ExistingVersion$\r$\nInstaller version: ${APP_VERSION}"
+  Pop $0
+  ${NSD_CreateLabel} 0 40u 100% 34u "A different version or build was found. Continue to replace the app files. Your settings, undo history, and videos are kept."
+  Pop $0
+  ${NSD_CreateButton} 0 94u 125u 24u "Repair or uninstall instead"
+  Pop $UpdateRepairButton
+  ${NSD_OnClick} $UpdateRepairButton UpdateChooseRepair
+  GetDlgItem $0 $HWNDPARENT 1
+  ${NSD_SetText} $0 "Update"
+  nsDialogs::Show
+FunctionEnd
+Function UpdateChooseRepair
+  Pop $0
+  StrCpy $Mode "repair"
+  GetDlgItem $0 $HWNDPARENT 1
+  SendMessage $HWNDPARENT ${WM_COMMAND} 1 $0
+FunctionEnd
+Function UpdateLeave
+  ; The separate maintenance page is shown only if Repair was chosen.
+  GetDlgItem $0 $HWNDPARENT 1
+  ${NSD_SetText} $0 "Next >"
+FunctionEnd
+
 Function MaintenanceCreate
   ${If} $ExistingDir == ""
+    Abort
+  ${EndIf}
+  ${If} $Mode == "update"
     Abort
   ${EndIf}
   !insertmacro MUI_HEADER_TEXT "Anemorph is already installed" "Repair the installation or remove Anemorph."
@@ -215,6 +271,7 @@ Function ${PREFIX}RemoveProgramFiles
   Delete "$2\NSIS-LICENSE.txt"
   Delete "$2\assets\screenshots\home.jpg"
   Delete "$2\assets\screenshots\explorer-menu.png"
+  Delete "$2\assets\screenshots\linux.webp"
   RMDir "$2\assets\screenshots"
   RMDir "$2\assets"
   Delete "$2\docs\usage.md"
@@ -241,6 +298,7 @@ Function ${PREFIX}RemoveProgramFiles
   ${OrIf} ${FileExists} "$2\NSIS-LICENSE.txt"
   ${OrIf} ${FileExists} "$2\assets\screenshots\home.jpg"
   ${OrIf} ${FileExists} "$2\assets\screenshots\explorer-menu.png"
+  ${OrIf} ${FileExists} "$2\assets\screenshots\linux.webp"
   ${OrIf} ${FileExists} "$2\docs\usage.md"
   ${OrIf} ${FileExists} "$2\docs\building.md"
   ${OrIf} ${FileExists} "$2\docs\performance.md"

@@ -29,6 +29,7 @@ VIAddVersionKey "LegalCopyright" "Anemorph contributors"
 !define MUI_ICON "..\assets\icon.ico"
 !define MUI_UNICON "..\assets\icon.ico"
 !define MUI_ABORTWARNING
+Page custom UpdateCreate UpdateLeave
 Page custom MaintenanceCreate MaintenanceLeave
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "..\LICENSE"
@@ -109,12 +110,14 @@ Section "Anemorph" Core
   SetOutPath "$INSTDIR\assets\screenshots"
   File "..\assets\screenshots\home.jpg"
   File "..\assets\screenshots\explorer-menu.png"
+  File "..\assets\screenshots\linux.webp"
   SetOutPath "$INSTDIR"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   CreateDirectory "$SMPROGRAMS\Anemorph"
   CreateShortcut "$SMPROGRAMS\Anemorph\Anemorph.lnk" "$INSTDIR\Anemorph.exe"
   CreateShortcut "$SMPROGRAMS\Anemorph\Uninstall Anemorph.lnk" "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\Anemorph" "InstallDir" "$INSTDIR"
+  WriteRegStr HKCU "Software\Anemorph" "BuildId" "${APP_BUILD_ID}"
   DeleteRegValue HKCU "Software\Anemorph" "ShellDll"
   WriteRegStr HKCU "Software\Anemorph\InstallLocations" "$INSTDIR" ""
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Anemorph" "DisplayName" "Anemorph"

@@ -115,7 +115,7 @@ fn program_leftovers(root: &Path, count: &mut usize) -> Result<(), String> {
         && fs::symlink_metadata(&screenshots)
             .is_ok_and(|m| m.is_dir() && !m.file_type().is_symlink())
     {
-        for name in ["home.jpg", "explorer-menu.png"] {
+        for name in ["home.jpg", "explorer-menu.png", "linux.webp"] {
             remove_file(&screenshots.join(name), count)?;
         }
         for folder in [&screenshots, &assets] {
@@ -323,7 +323,7 @@ mod tests {
         fs::write(root.join("My video.mkv"), b"video").unwrap();
         let screenshots = root.join("assets/screenshots");
         fs::create_dir_all(&screenshots).unwrap();
-        for name in ["home.jpg", "explorer-menu.png", "Keep.png"] {
+        for name in ["home.jpg", "explorer-menu.png", "linux.webp", "Keep.png"] {
             fs::write(screenshots.join(name), b"fixture").unwrap();
         }
         fs::create_dir_all(root.join("docs")).unwrap();
@@ -339,7 +339,8 @@ mod tests {
         fs::write(root.join("docs/licenses/Keep.txt"), b"unrelated").unwrap();
         let mut count = 0;
         program_leftovers(&root, &mut count).unwrap();
-        assert_eq!(count, 7);
+        assert_eq!(count, 8);
+        assert!(!screenshots.join("linux.webp").exists());
         assert!(!root.join("docs/licenses/dependency-licenses.md").exists());
         assert!(!root.join("docs/changelog.md").exists());
         assert!(root.join("docs/licenses/Keep.txt").is_file());

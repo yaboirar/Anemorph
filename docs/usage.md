@@ -12,7 +12,7 @@
 
 ## Your first rename
 
-1. Install **Anemorph-Setup-0.0.3.exe**, or extract the portable ZIP and open **Anemorph.exe**.
+1. On Windows, install **Anemorph-Setup-0.0.4.exe**, or extract the portable ZIP and open **Anemorph.exe**. On Linux, extract the Linux archive and run **anemorph**; `sh install.sh` adds it to your app menu.
 2. Browse for a folder, paste its path, or drag it into the window.
 3. Check the suggested series name. Edit it, or use its refresh icon to restore the name detected from the folder.
 4. Review the **New filename** column and check the files you want to include.

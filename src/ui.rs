@@ -48,6 +48,21 @@ mod title_bar_tests {
                 .commands
                 .clone(),
         );
+        assert!(
+            !pressed.viewport_output[&egui::ViewportId::ROOT]
+                .commands
+                .iter()
+                .any(|c| matches!(c, ViewportCommand::StartDrag)),
+            "a click without movement must not restore or drag the window"
+        );
+        let continued = frame(vec![egui::Event::PointerMoved(start + Vec2::new(30., 0.))]);
+        assert!(
+            !continued.viewport_output[&egui::ViewportId::ROOT]
+                .commands
+                .iter()
+                .any(|c| matches!(c, ViewportCommand::StartDrag)),
+            "a held gesture must start the native move only once"
+        );
         commands
     }
 
@@ -731,6 +746,9 @@ impl App {
         ctx.set_style(style);
     }
     fn nav(&mut self, ui: &mut Ui) {
+        if !ui.ctx().input(|i| i.pointer.primary_down()) {
+            self.caption_drag_started = false;
+        }
         self.paint_brand(ui);
         let p = self.palette();
         let rect = ui.max_rect();
@@ -826,7 +844,7 @@ impl App {
             Vec2::new(132., 34.),
         );
         let drag = ui.ctx().input(|i| {
-            i.pointer.interact_pos().is_some_and(|pos| {
+            i.pointer.press_origin().is_some_and(|pos| {
                 title.contains(pos)
                     && !controls.contains(pos)
                     && !self.nav_rects.iter().any(|r| r.contains(pos))
@@ -844,7 +862,11 @@ impl App {
                 let maximized = ui.ctx().input(|i| i.viewport().maximized.unwrap_or(false));
                 ui.ctx()
                     .send_viewport_cmd(ViewportCommand::Maximized(!maximized));
-            } else if ui.ctx().input(|i| i.pointer.primary_pressed()) {
+            } else if !self.caption_drag_started
+                && ui
+                    .ctx()
+                    .input(|i| i.pointer.primary_down() && i.pointer.is_decidedly_dragging())
+            {
                 self.start_window_drag(ui.ctx());
             }
         }

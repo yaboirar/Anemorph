@@ -1,4 +1,4 @@
-//! Windows pixel-buffer integration. No GPU device, shader compiler, or web runtime.
+//! Native pixel-buffer integration. No GPU device, shader compiler, or web runtime.
 use crate::{App, Context, StartupSelection};
 use eframe::egui::{self, ViewportId};
 use egui_software_backend::{BufferMutRef, ColorFieldOrder, EguiSoftwareRender};
@@ -33,6 +33,10 @@ struct Runner {
     selection: Option<StartupSelection>,
     due: Option<Instant>,
     last_present: Option<Instant>,
+    needs_paint: bool,
+    painted_size: Option<(u32, u32)>,
+    #[cfg(target_os = "linux")]
+    drag_after_restore: bool,
     events: Vec<egui::Event>,
     close_requested: bool,
     error: Option<String>,
@@ -40,6 +44,7 @@ struct Runner {
 }
 impl Runner {
     fn schedule(&mut self, when: Instant) {
+        self.needs_paint = true;
         let when = self
             .last_present
             .map_or(when, |last| when.max(last + Duration::from_millis(16)));
@@ -48,10 +53,43 @@ impl Runner {
     fn paint(&mut self, el: &ActiveEventLoop) -> Result<(), String> {
         let started = Instant::now();
         let window = self.window.as_ref().unwrap();
+        #[cfg(target_os = "linux")]
+        if self.drag_after_restore && !window.is_maximized() {
+            self.drag_after_restore = false;
+            if self.ctx.input(|i| i.pointer.primary_down()) {
+                let _ = window.drag_window();
+                self.events.push(egui::Event::PointerButton {
+                    pos: self
+                        .ctx
+                        .input(|i| i.pointer.interact_pos())
+                        .unwrap_or_default(),
+                    button: egui::PointerButton::Primary,
+                    pressed: false,
+                    modifiers: egui::Modifiers::NONE,
+                });
+                self.ctx.request_repaint();
+            }
+        }
         let size = window.inner_size();
         if size.width == 0 || size.height == 0 || window.is_minimized() == Some(true) {
             return Ok(());
         }
+        if !self.needs_paint && self.painted_size == Some((size.width, size.height)) {
+            let buffer = self
+                .surface
+                .as_mut()
+                .unwrap()
+                .buffer_mut()
+                .map_err(|e| e.to_string())?;
+            // Windows and X11 retain the previous pixels. An expose/move can
+            // present them directly without rebuilding or rasterizing the UI.
+            if buffer.age() == 1 {
+                buffer.present().map_err(|e| e.to_string())?;
+                self.last_present = Some(Instant::now());
+                return Ok(());
+            }
+        }
+        self.needs_paint = false;
         let input = self.input.as_mut().unwrap();
         let mut raw = input.take_egui_input(window);
         let info = raw.viewports.entry(ViewportId::ROOT).or_default();
@@ -75,13 +113,50 @@ impl Runner {
                     _ => {}
                 }
             }
+            let commands = v.commands.clone();
+            #[cfg(target_os = "linux")]
+            let commands = {
+                let mut commands = commands;
+                if window.is_maximized()
+                    && commands
+                        .iter()
+                        .any(|c| matches!(c, egui::ViewportCommand::StartDrag))
+                {
+                    // Xfce does not restore borderless maximized windows on move.
+                    // Wait for the window manager's restore before starting its move.
+                    commands.retain(|c| !matches!(c, egui::ViewportCommand::StartDrag));
+                    window.set_maximized(false);
+                    self.drag_after_restore = true;
+                    self.ctx.request_repaint_after(Duration::from_millis(30));
+                }
+                commands
+            };
+            #[cfg(target_os = "linux")]
+            let native_drag = commands
+                .iter()
+                .any(|c| matches!(c, egui::ViewportCommand::StartDrag));
             egui_winit::process_viewport_commands(
                 &self.ctx,
                 &mut info,
-                v.commands.clone(),
+                commands,
                 window,
                 &mut actions,
             );
+            #[cfg(target_os = "linux")]
+            if native_drag {
+                // The window manager consumes mouse-up during a native move.
+                // Release only the UI's press so the next drag is a new gesture.
+                self.events.push(egui::Event::PointerButton {
+                    pos: self
+                        .ctx
+                        .input(|i| i.pointer.interact_pos())
+                        .unwrap_or_default(),
+                    button: egui::PointerButton::Primary,
+                    pressed: false,
+                    modifiers: egui::Modifiers::NONE,
+                });
+                self.ctx.request_repaint();
+            }
         }
         self.close_requested = false;
         if close {
@@ -120,6 +195,7 @@ impl Runner {
             }
         }
         buffer.present().map_err(|e| e.to_string())?;
+        self.painted_size = Some((size.width, size.height));
         self.last_present = Some(Instant::now());
         if self.smoke.is_some() {
             self.paint_ms.push(started.elapsed().as_secs_f64() * 1000.);
@@ -141,6 +217,7 @@ impl ApplicationHandler<Wake> for Runner {
                 RawWindowHandle::Win32(w) => Some(w.hwnd.get() as usize),
                 _ => None,
             };
+            #[cfg(windows)]
             if let Some(hwnd) = hwnd {
                 use windows_sys::Win32::Graphics::Dwm::{
                     DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND, DwmSetWindowAttribute,
@@ -177,7 +254,7 @@ impl ApplicationHandler<Wake> for Runner {
             if let Some(dir) = &self.smoke {
                 let _ = std::fs::write(
                     dir.join("graphics.json"),
-                    r#"{"adapter":"Windows pixel buffer","backend":"CPU rasterizer","type":"Cpu"}"#,
+                    r#"{"adapter":"Native pixel buffer","backend":"CPU rasterizer","type":"Cpu"}"#,
                 );
             }
             if let Some(selection) = self.selection.take() {
@@ -215,6 +292,11 @@ impl ApplicationHandler<Wake> for Runner {
         }
         if matches!(event, WindowEvent::CloseRequested) {
             self.close_requested = true;
+        }
+        // Moving the existing surface does not change a single client-area pixel.
+        // DPI changes, resizing, focus, input, and worker wakeups still repaint.
+        if matches!(event, WindowEvent::Moved(_)) {
+            return;
         }
         let response = self
             .input
@@ -282,6 +364,10 @@ pub fn run(
         selection,
         due: None,
         last_present: None,
+        needs_paint: true,
+        painted_size: None,
+        #[cfg(target_os = "linux")]
+        drag_after_restore: false,
         events: Vec::new(),
         close_requested: false,
         error: None,

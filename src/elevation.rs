@@ -1,8 +1,12 @@
 //! Narrow administrator handoff. Call only after an explicit user action.
-use std::{os::windows::ffi::OsStrExt, path::Path};
+#[cfg(windows)]
+use std::os::windows::ffi::OsStrExt;
+use std::path::Path;
+#[cfg(windows)]
 use windows_sys::Win32::{
     Foundation::*, System::Threading::*, UI::Shell::*, UI::WindowsAndMessaging::SW_HIDE,
 };
+#[cfg(windows)]
 pub fn run(path: &Path, action: &str) -> Result<(), String> {
     let file: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
     let verb: Vec<u16> = "runas".encode_utf16().chain(Some(0)).collect();
@@ -34,4 +38,8 @@ pub fn run(path: &Path, action: &str) -> Result<(), String> {
         }
     }
     Ok(())
+}
+#[cfg(not(windows))]
+pub fn run(_path: &Path, _action: &str) -> Result<(), String> {
+    Err("This action is only available on Windows.".into())
 }

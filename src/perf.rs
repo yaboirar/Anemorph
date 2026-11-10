@@ -105,6 +105,7 @@ pub fn run(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[cfg(windows)]
 fn private_bytes() -> usize {
     use windows_sys::Win32::System::{
         ProcessStatus::{GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS_EX},
@@ -124,4 +125,14 @@ fn private_bytes() -> usize {
         }
     }
     counters.PrivateUsage
+}
+#[cfg(target_os = "linux")]
+fn private_bytes() -> usize {
+    std::fs::read_to_string("/proc/self/smaps_rollup")
+        .unwrap_or_default()
+        .lines()
+        .filter(|line| line.starts_with("Private_Clean:") || line.starts_with("Private_Dirty:"))
+        .filter_map(|line| line.split_whitespace().nth(1)?.parse::<usize>().ok())
+        .sum::<usize>()
+        * 1024
 }
