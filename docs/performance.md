@@ -12,7 +12,7 @@
 
 ## 0.0.4: active use on Linux
 
-The latest Windows-only patch limits cached paint copies to the invalid area recorded before the window framework handles the paint message. Empty internal paint requests copy no pixels. Full content updates still repaint normally, and failed tracking setup falls back to the previous full cached copy. All 82 Windows workspace tests and Clippy pass, including tests for clipping and merging delayed repaint regions. No new image buffers, background timers, or polling were added. The change's effect on the user's Windows CPU spike remains unmeasured; the Linux measurements below do not validate that effect.
+The latest Windows patch avoids drawing the whole window again when nothing has changed, or only a small part needs updating. The app still draws the whole window when its contents change. It adds no extra background work or additional copy of the window in memory. All 82 automated Windows checks passed. Whether this lowers the reported 3% CPU spike on the user's PC has not been confirmed. The Linux results below cannot establish that Windows improvement.
 
 Tested on 10 November 2026 in the Box cloud computer: Ubuntu 24.04.5, Xfce on X11, 1280 x 800 desktop, four logical processors and 7.7 GiB RAM. The app was restricted to **two CPU threads** and used its default CPU drawing mode, without creating a GPU device. The final run took place after compilation had finished.
 

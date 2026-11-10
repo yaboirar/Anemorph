@@ -14,9 +14,10 @@
 
 ### Latest Windows patch
 
-- Avoid copying the whole window for a paint request when only a small area needs updating, or nothing has changed.
-- Keep repainting exposed areas correctly when Windows delays paint requests during window movement.
-- Pass 82 automated Windows tests. The change removes unnecessary drawing work; its effect on the reported 3% CPU spike has not been measured on the user's Windows PC.
+- Windows now does less repeated drawing when you move the app window.
+- The window still updates when you resize it or bring it back into view.
+
+This may lower CPU use while dragging. The improvement on the PC with the reported 3% spike has not been confirmed.
 
 ### 0.0.4 update
 
