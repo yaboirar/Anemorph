@@ -10,7 +10,8 @@ jobs:
   linux:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - name: Get the source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
       - name: Install build tools
         run: sudo apt-get update && sudo apt-get install -y libx11-dev libxkbcommon-dev libwayland-dev libgl1-mesa-dev libegl1-mesa-dev libdbus-1-dev fonts-noto-cjk fonts-dejavu-core
       - name: Install Rust
@@ -22,7 +23,8 @@ jobs:
           cargo test -p anemorph --locked
       - name: Package
         run: sh installer/linux/package.sh
-      - uses: actions/upload-artifact@v4
+      - name: Save Linux downloads
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2, Node 24
         with:
           name: anemorph-linux
           path: |
