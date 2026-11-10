@@ -54,7 +54,7 @@ The Linux build is a native desktop app. The default drawing path does not requi
 On Ubuntu 24.04, install stable Rust and these build/runtime libraries:
 
 ```sh
-sudo apt install build-essential pkg-config libx11-dev libxkbcommon-dev libxkbcommon-x11-0 libwayland-dev libgl1-mesa-dev libegl1-mesa-dev libdbus-1-dev
+sudo apt install build-essential pkg-config libx11-dev libxkbcommon-dev libxkbcommon-x11-0 libwayland-dev libgl1-mesa-dev libegl1-mesa-dev libdbus-1-dev fonts-noto-cjk fonts-dejavu-core
 cargo build --release --locked -p anemorph
 cargo test --locked -p anemorph
 cargo clippy --locked -p anemorph --all-targets -- -D warnings

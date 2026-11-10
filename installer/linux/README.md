@@ -14,6 +14,8 @@ Compatible file managers can open selected videos using **Open With > Anemorph**
 
 This x86-64 build requires glibc 2.39 or newer. On Ubuntu 24.04 with X11, install missing runtime libraries with `sudo apt install libxkbcommon-x11-0 libwayland-client0 libegl1 libgl1`. A graphical desktop is required. The default drawing mode does not require a graphics card.
 
+For Japanese, Korean, or Chinese text, install `fonts-noto-cjk`. The `.deb` recommends this automatically. Arabic and Russian can use `fonts-dejavu-core`. Anemorph loads the extra font only when you choose its language.
+
 Run `sh uninstall.sh` with the same install location to remove the installed files. Settings and undo history are kept in `${XDG_DATA_HOME:-$HOME/.local/share}/anemorph`.
 
 Source, help, and updates: https://github.com/yaboirar/Anemorph

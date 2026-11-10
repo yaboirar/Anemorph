@@ -46,7 +46,7 @@ Section: utils
 Priority: optional
 Installed-Size: $(du -sk "$deb/usr" | cut -f1)
 Depends: libc6 (>= 2.39), libgcc-s1, libxkbcommon0, libxkbcommon-x11-0, libx11-6, libxcb1, libxcursor1, libxi6, libxrandr2, libwayland-client0, libegl1, libgl1
-Recommends: xdg-desktop-portal, fonts-dejavu-core
+Recommends: xdg-desktop-portal, fonts-dejavu-core, fonts-noto-cjk
 Homepage: https://github.com/yaboirar/Anemorph
 Description: Rename episodes and movies in batches
  Preview filename changes, choose your own naming format, and undo a batch.
