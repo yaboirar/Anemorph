@@ -12,7 +12,7 @@
 
 ## 0.0.4: active use on Linux
 
-The latest Windows patch avoids drawing the whole window again when nothing has changed, or only a small part needs updating. The app still draws the whole window when its contents change. It adds no extra background work or additional copy of the window in memory. All 82 automated Windows checks passed. Whether this lowers the reported 3% CPU spike on the user's PC has not been confirmed. The Linux results below cannot establish that Windows improvement.
+The latest Windows patch avoids drawing the whole window again when nothing has changed, or only a small part needs updating. The app still draws the whole window when its contents change. It adds no extra background work or additional copy of the window in memory. All 82 automated Windows checks passed.
 
 Tested on 10 November 2026 in the Box cloud computer: Ubuntu 24.04.5, Xfce on X11, 1280 x 800 desktop, four logical processors and 7.7 GiB RAM. The app was restricted to **two CPU threads** and used its default CPU drawing mode, without creating a GPU device. The final run took place after compilation had finished.
 

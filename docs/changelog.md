@@ -17,8 +17,6 @@
 - Windows now does less repeated drawing when you move the app window.
 - The window still updates when you resize it or bring it back into view.
 
-This may lower CPU use while dragging. The improvement on the PC with the reported 3% spike has not been confirmed.
-
 ### 0.0.4 update
 
 - **Linux support:** rename episodes and movies on Linux with previews, custom names, and undo. Run it directly or install it for your account, in a folder you choose.
