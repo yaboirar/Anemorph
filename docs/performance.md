@@ -16,15 +16,15 @@ Tested on 10 November 2026 in the Box cloud computer: Ubuntu 24.04.5, Xfce on X1
 
 | Workload | Peak app memory | Average CPU, relative to one full CPU core |
 | :--- | ---: | ---: |
-| Idle with 300 files, six seconds | 31.19 MiB | 0.00% |
-| Dragging the window | 31.25 MiB | 2.71% |
-| Repeated resizing | 34.08 MiB | 11.18% |
-| Scrolling 300 files | 34.25 MiB | 33.11% |
-| Renaming 300 files, then undoing | 36.89 MiB | 4.00% |
+| Idle with 300 files, six seconds | 31.18 MiB | 0.00% |
+| Dragging the window | 31.24 MiB | 1.33% |
+| Repeated resizing | 34.08 MiB | 5.22% |
+| Scrolling 300 files | 34.39 MiB | 29.93% |
+| Renaming 300 files, then undoing | 36.90 MiB | 6.09% |
 
 Memory is resident process memory (RSS), sampled every 50 ms. CPU is process user-plus-kernel time divided by elapsed time; **100% here means one fully occupied core**, not the whole computer. These are workload averages, not maximum short bursts or input-to-display latency. OS window composition is outside the app's process measurements.
 
-All 300 original filenames and file contents matched after undo. Five consecutive maximize-and-drag cycles restored the Linux window successfully. Opening another selection reused the existing window. Installation and removal were also checked in a custom path containing spaces.
+All 300 original filenames and file contents matched after undo. Five consecutive maximize-and-drag cycles restored the Linux window successfully. Opening another selection reused the existing window. Installation and removal were checked with apt and in a custom path containing spaces.
 
 The Linux naming benchmark measured a 2,000-file scan at 3.60 ms, a 10,000-file preview at 23.86 ms, a 50,000-file preview at 156.53 ms, and a 500-file rename/undo at 77.31 ms. Private resident memory stayed at 33.56 MiB across 30 repeated previews. This earlier engine-only run was separate from the final GUI measurements. The Windows engine-only check measured 7.09 ms, 35.12 ms, 192.79 ms, and 974.29 ms respectively; its private committed allocation stayed around 17.11 MiB. These memory measures differ and should not be compared as if identical.
 

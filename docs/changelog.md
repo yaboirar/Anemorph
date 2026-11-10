@@ -13,6 +13,7 @@
 ## 0.0.4 - 2026-11-10
 
 - **Linux support:** rename episodes and movies on Linux with previews, custom names, and undo. Run it directly or install it for your account, in a folder you choose.
+- Install the Ubuntu/Debian download with `sudo apt install ./Anemorph-0.0.4-linux-amd64.deb`, or use the portable archive if you prefer a custom folder.
 - **Less work while moving the window:** reuse the contents already drawn instead of drawing them again just because the window moved.
 - **Window dragging:** correct how a maximized Windows window starts moving, and release a completed drag so the next one can start normally.
 - **An Update page in the Windows installer:** a different version or build offers Update separately from Repair and Uninstall. A button takes you to Repair if that is what you need. Updating keeps your settings and undo history.
