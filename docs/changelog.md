@@ -12,6 +12,14 @@
 
 ## 0.0.4 - 2026-11-10
 
+### Latest Windows patch
+
+- Avoid copying the whole window for a paint request when only a small area needs updating, or nothing has changed.
+- Keep repainting exposed areas correctly when Windows delays paint requests during window movement.
+- Pass 82 automated Windows tests. The change removes unnecessary drawing work; its effect on the reported 3% CPU spike has not been measured on the user's Windows PC.
+
+### 0.0.4 update
+
 - **Linux support:** rename episodes and movies on Linux with previews, custom names, and undo. Run it directly or install it for your account, in a folder you choose.
 - Install the Ubuntu/Debian download with `sudo apt install ./Anemorph-0.0.4-linux-amd64.deb`, or use the portable archive if you prefer a custom folder.
 - **Less work while moving the window:** reuse the contents already drawn instead of drawing them again just because the window moved.

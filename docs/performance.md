@@ -12,6 +12,8 @@
 
 ## 0.0.4: active use on Linux
 
+The latest Windows-only patch limits cached paint copies to the invalid area recorded before the window framework handles the paint message. Empty internal paint requests copy no pixels. Full content updates still repaint normally, and failed tracking setup falls back to the previous full cached copy. All 82 Windows workspace tests and Clippy pass, including tests for clipping and merging delayed repaint regions. No new image buffers, background timers, or polling were added. The change's effect on the user's Windows CPU spike remains unmeasured; the Linux measurements below do not validate that effect.
+
 Tested on 10 November 2026 in the Box cloud computer: Ubuntu 24.04.5, Xfce on X11, 1280 x 800 desktop, four logical processors and 7.7 GiB RAM. The app was restricted to **two CPU threads** and used its default CPU drawing mode, without creating a GPU device. The final run took place after compilation had finished.
 
 | Workload | Peak app memory | Average CPU, relative to one full CPU core |

@@ -35,6 +35,8 @@ struct Runner {
     last_present: Option<Instant>,
     needs_paint: bool,
     painted_size: Option<(u32, u32)>,
+    #[cfg(windows)]
+    damage_tracked: bool,
     #[cfg(target_os = "linux")]
     drag_after_restore: bool,
     events: Vec<egui::Event>,
@@ -84,6 +86,23 @@ impl Runner {
             // Windows and X11 retain the previous pixels. An expose/move can
             // present them directly without rebuilding or rasterizing the UI.
             if buffer.age() == 1 {
+                #[cfg(windows)]
+                {
+                    let damage = if self.damage_tracked {
+                        take_damage(size.width, size.height)
+                    } else {
+                        Some(softbuffer::Rect {
+                            x: 0,
+                            y: 0,
+                            width: NonZeroU32::new(size.width).unwrap(),
+                            height: NonZeroU32::new(size.height).unwrap(),
+                        })
+                    };
+                    buffer
+                        .present_with_damage(damage.as_slice())
+                        .map_err(|e| e.to_string())?;
+                }
+                #[cfg(not(windows))]
                 buffer.present().map_err(|e| e.to_string())?;
                 self.last_present = Some(Instant::now());
                 return Ok(());
@@ -194,6 +213,10 @@ impl Runner {
                 self.ctx.request_repaint();
             }
         }
+        #[cfg(windows)]
+        if self.damage_tracked {
+            let _ = take_damage(size.width, size.height);
+        }
         buffer.present().map_err(|e| e.to_string())?;
         self.painted_size = Some((size.width, size.height));
         self.last_present = Some(Instant::now());
@@ -203,6 +226,81 @@ impl Runner {
         Ok(())
     }
 }
+
+#[cfg(windows)]
+thread_local! {
+    static PAINT_DAMAGE: std::cell::Cell<Option<[i32; 4]>> = const { std::cell::Cell::new(None) };
+}
+
+#[cfg(windows)]
+unsafe extern "system" fn track_damage(
+    hwnd: windows_sys::Win32::Foundation::HWND,
+    message: u32,
+    w: usize,
+    l: isize,
+    id: usize,
+    _data: usize,
+) -> isize {
+    use windows_sys::Win32::{
+        Foundation::RECT,
+        Graphics::Gdi::GetUpdateRect,
+        UI::{
+            Shell::{DefSubclassProc, RemoveWindowSubclass},
+            WindowsAndMessaging::{WM_NCDESTROY, WM_PAINT},
+        },
+    };
+    // Capture before winit validates WM_PAINT, including paints it defers during
+    // native move/resize loops. No app pointers, allocations, or timers retained.
+    unsafe {
+        if message == WM_PAINT {
+            let mut r = RECT::default();
+            if GetUpdateRect(hwnd, &mut r, 0) != 0 {
+                PAINT_DAMAGE.with(|pending| {
+                    pending.set(Some(merge_damage(
+                        pending.get(),
+                        [r.left, r.top, r.right, r.bottom],
+                    )))
+                });
+            }
+        } else if message == WM_NCDESTROY {
+            RemoveWindowSubclass(hwnd, Some(track_damage), id);
+            PAINT_DAMAGE.with(|pending| pending.set(None));
+        }
+        DefSubclassProc(hwnd, message, w, l)
+    }
+}
+
+#[cfg(windows)]
+fn take_damage(width: u32, height: u32) -> Option<softbuffer::Rect> {
+    PAINT_DAMAGE.with(|pending| clipped_damage(pending.take()?, width, height))
+}
+
+#[cfg(any(windows, test))]
+fn merge_damage(previous: Option<[i32; 4]>, next: [i32; 4]) -> [i32; 4] {
+    previous.map_or(next, |p| {
+        [
+            p[0].min(next[0]),
+            p[1].min(next[1]),
+            p[2].max(next[2]),
+            p[3].max(next[3]),
+        ]
+    })
+}
+
+#[cfg(any(windows, test))]
+fn clipped_damage(rect: [i32; 4], width: u32, height: u32) -> Option<softbuffer::Rect> {
+    let left = i64::from(rect[0]).clamp(0, i64::from(width));
+    let top = i64::from(rect[1]).clamp(0, i64::from(height));
+    let right = i64::from(rect[2]).clamp(left, i64::from(width));
+    let bottom = i64::from(rect[3]).clamp(top, i64::from(height));
+    Some(softbuffer::Rect {
+        x: left as u32,
+        y: top as u32,
+        width: NonZeroU32::new((right - left) as u32)?,
+        height: NonZeroU32::new((bottom - top) as u32)?,
+    })
+}
+
 impl ApplicationHandler<Wake> for Runner {
     fn resumed(&mut self, el: &ActiveEventLoop) {
         if self.window.is_some() {
@@ -219,6 +317,15 @@ impl ApplicationHandler<Wake> for Runner {
             };
             #[cfg(windows)]
             if let Some(hwnd) = hwnd {
+                // Fall back to the original full cached present if registration fails.
+                self.damage_tracked = unsafe {
+                    windows_sys::Win32::UI::Shell::SetWindowSubclass(
+                        hwnd as _,
+                        Some(track_damage),
+                        0x414e5054,
+                        0,
+                    ) != 0
+                };
                 use windows_sys::Win32::Graphics::Dwm::{
                     DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND, DwmSetWindowAttribute,
                 };
@@ -366,6 +473,8 @@ pub fn run(
         last_present: None,
         needs_paint: true,
         painted_size: None,
+        #[cfg(windows)]
+        damage_tracked: false,
         #[cfg(target_os = "linux")]
         drag_after_restore: false,
         events: Vec::new(),
@@ -382,4 +491,31 @@ pub fn run(
         ))));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod damage_tests {
+    use super::*;
+
+    #[test]
+    fn damage_copies_only_the_invalid_visible_pixels() {
+        let r = clipped_damage([-5, -2, 40, 30], 100, 80).unwrap();
+        assert_eq!((r.x, r.y, r.width.get(), r.height.get()), (0, 0, 40, 30));
+        let r = clipped_damage([90, 70, 150, 150], 100, 80).unwrap();
+        assert_eq!((r.x, r.y, r.width.get(), r.height.get()), (90, 70, 10, 10));
+        assert!(clipped_damage([100, 0, 120, 10], 100, 80).is_none());
+        assert!(clipped_damage([40, 20, 10, 5], 100, 80).is_none());
+    }
+
+    #[test]
+    fn deferred_paint_regions_are_merged_without_losing_exposed_pixels() {
+        let first = merge_damage(None, [10, 20, 30, 40]);
+        let union = merge_damage(Some(first), [60, 5, 80, 15]);
+        assert_eq!(union, [10, 5, 80, 40]);
+        let damage = clipped_damage(union, 100, 80).unwrap();
+        assert_eq!(
+            (damage.x, damage.y, damage.width.get(), damage.height.get()),
+            (10, 5, 70, 35)
+        );
+    }
 }
